@@ -1,0 +1,8 @@
+{
+  "name": "mindflow",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/prototype/organizer.test.js"
+  }
+}
