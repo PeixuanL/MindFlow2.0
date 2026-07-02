@@ -1,4 +1,4 @@
-# MindFlow
+# MindFlow2.0
 
 This project uses a lightweight Vibe Coding workflow for AI-assisted development.
 
