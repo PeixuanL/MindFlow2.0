@@ -13,23 +13,12 @@
         <div class="today-label">今日</div>
       </header>
 
-      <section class="capture-section" aria-labelledby="capture-title">
+      <section class="hero-section" aria-labelledby="capture-title">
         <h1 id="capture-title">先不用想清楚</h1>
         <p class="supporting-copy">想到什么都可以先放在这里。</p>
-
-        <label class="sr-only" for="thought-input">写下想到的事</label>
-        <textarea
-          id="thought-input"
-          class="thought-input"
-          rows="7"
-          placeholder="例：牙医还没约，周末整理房间，保险那个事也要看，小王消息没回，论文材料有点烦..."
-        ></textarea>
-
-        <button id="organize-button" class="primary-button" type="button">帮我捋一捋</button>
-        <p id="status-message" class="status-message">其他想法都还在</p>
       </section>
 
-      <section id="suggestion-section" class="suggestion-section is-hidden" aria-live="polite">
+      <section id="suggestion-section" class="suggestion-section is-hidden" aria-live="polite" aria-labelledby="suggestion-label">
         <p class="eyebrow" id="suggestion-label">也许可以先看这个</p>
         <h2 id="suggestion-title">给牙医打电话预约</h2>
         <p id="suggestion-reason" class="reason">它比较清楚，不需要一次处理太多。</p>
@@ -42,6 +31,23 @@
       <section id="add-more-section" class="add-more-section is-hidden" aria-labelledby="add-more-title">
         <h2 id="add-more-title">又想到什么</h2>
         <p>继续放在这里。</p>
+      </section>
+
+      <section class="capture-section" aria-label="记一笔">
+        <div class="capture-header">
+          <p class="capture-title">记一笔</p>
+          <p id="status-message" class="status-message">其他想法都还在</p>
+        </div>
+
+        <label class="sr-only" for="thought-input">写下想到的事</label>
+        <textarea
+          id="thought-input"
+          class="thought-input"
+          rows="5"
+          placeholder="例：牙医还没约，周末整理房间，保险那个事也要看，小王消息没回，论文材料有点烦..."
+        ></textarea>
+
+        <button id="organize-button" class="primary-button" type="button">帮我捋一捋</button>
       </section>
     </main>
 
