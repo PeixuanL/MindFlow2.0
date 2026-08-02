@@ -17,7 +17,6 @@ export default function handler(request, response) {
   }
 
   sendJson(response, 200, {
-    supabaseUrl: process.env.SUPABASE_URL,
-    supabaseKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+    supabaseProxyUrl: "/api/supabase-proxy",
   });
 }

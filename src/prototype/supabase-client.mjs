@@ -58,13 +58,14 @@ export function createSupabaseRestClient(options = {}) {
     configPromise ??= fetchImpl(configUrl)
       .then(async (response) => {
         const payload = await response.json();
-        if (!response.ok || !payload.supabaseUrl || !payload.supabaseKey) {
+        if (!response.ok || (!payload.supabaseProxyUrl && (!payload.supabaseUrl || !payload.supabaseKey))) {
           throw new Error("cloud_config_unavailable");
         }
 
         return {
-          url: String(payload.supabaseUrl).replace(/\/+$/u, ""),
-          key: payload.supabaseKey,
+          proxyUrl: payload.supabaseProxyUrl ? String(payload.supabaseProxyUrl) : null,
+          url: payload.supabaseUrl ? String(payload.supabaseUrl).replace(/\/+$/u, "") : null,
+          key: payload.supabaseKey ?? null,
         };
       });
 
@@ -75,7 +76,6 @@ export function createSupabaseRestClient(options = {}) {
     const config = await getConfig();
     const session = options.session ?? readSession();
     const headers = {
-      apikey: config.key,
       "Content-Type": "application/json",
       ...(options.headers ?? {}),
     };
@@ -84,10 +84,26 @@ export function createSupabaseRestClient(options = {}) {
       headers.Authorization = `Bearer ${session.access_token}`;
     }
 
-    const response = await fetchImpl(`${config.url}${path}`, {
-      ...options,
-      headers,
-    });
+    const response = config.proxyUrl
+      ? await fetchImpl(config.proxyUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          path,
+          method: options.method ?? "GET",
+          headers,
+          body: options.body ?? null,
+        }),
+      })
+      : await fetchImpl(`${config.url}${path}`, {
+        ...options,
+        headers: {
+          ...headers,
+          apikey: config.key,
+        },
+      });
     const text = await response.text();
     const body = parseResponseBody(text);
 

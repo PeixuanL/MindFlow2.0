@@ -83,9 +83,58 @@ const server = createServer(async (request, response) => {
     }
 
     sendJson(response, 200, {
-      supabaseUrl,
-      supabaseKey: supabasePublishableKey,
+      supabaseProxyUrl: "/api/supabase-proxy",
     });
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/api/supabase-proxy") {
+    if (!supabaseUrl || !supabasePublishableKey) {
+      sendJson(response, 503, { error: "cloud_config_missing" });
+      return;
+    }
+
+    try {
+      const body = await readJsonBody(request);
+      const path = typeof body.path === "string" ? body.path : "";
+      const method = typeof body.method === "string" ? body.method.toUpperCase() : "GET";
+
+      if (
+        !path.startsWith("/") ||
+        !(path.startsWith("/auth/v1/") || path.startsWith("/rest/v1/")) ||
+        !(method === "GET" || method === "POST")
+      ) {
+        sendJson(response, 400, { error: "invalid_supabase_proxy_request" });
+        return;
+      }
+
+      const headers = {
+        apikey: supabasePublishableKey,
+        "Content-Type": "application/json",
+      };
+
+      if (typeof body.headers?.Authorization === "string" && body.headers.Authorization.startsWith("Bearer ")) {
+        headers.Authorization = body.headers.Authorization;
+      }
+
+      if (typeof body.headers?.Prefer === "string") {
+        headers.Prefer = body.headers.Prefer;
+      }
+
+      const upstream = await fetch(`${supabaseUrl.replace(/\/+$/u, "")}${path}`, {
+        method,
+        headers,
+        body: method === "GET" ? undefined : body.body ?? null,
+      });
+      const text = await upstream.text();
+
+      response.writeHead(upstream.status, {
+        "Content-Type": upstream.headers.get("content-type") || "application/json; charset=utf-8",
+      });
+      response.end(text);
+    } catch {
+      sendJson(response, 400, { error: "supabase_proxy_failed" });
+    }
     return;
   }
 
