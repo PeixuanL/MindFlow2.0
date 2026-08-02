@@ -1,4 +1,5 @@
-const STORAGE_KEY = "mindflow:v1";
+export const MIND_FLOW_STORAGE_KEY = "mindflow:v1";
+const STORAGE_KEY = MIND_FLOW_STORAGE_KEY;
 const SKIP_MS = 30 * 60 * 1000;
 const SNOOZE_MS = 24 * 60 * 60 * 1000;
 
@@ -289,6 +290,17 @@ export function createMindFlowStore(options = {}) {
   }
 
   return {
+    replaceState(nextState) {
+      writeState(storage, {
+        ...clone(defaultState),
+        ...(nextState && typeof nextState === "object" ? clone(nextState) : {}),
+      });
+    },
+
+    exportState() {
+      return readState(storage);
+    },
+
     register(credentials) {
       const loginCredentials = getLoginCredentials(credentials);
       if (!loginCredentials.accountName) {

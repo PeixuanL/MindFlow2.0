@@ -2,10 +2,11 @@ import {
   getOrganizedResultSaveBlocker,
   organizeThoughtsWithAi,
 } from "./ai-organizer.mjs";
-import { createMindFlowStore, priorityLabels } from "./store.mjs";
+import { createMindFlowCloudStore } from "./cloud-store.mjs";
+import { priorityLabels } from "./store.mjs";
 import { createVoiceInputController } from "./voice-input.mjs";
 
-const store = createMindFlowStore();
+const store = createMindFlowCloudStore();
 const appShell = document.querySelector(".app-shell");
 const views = {
   login: document.querySelector("#login-view"),
@@ -703,18 +704,19 @@ function deleteItem(itemId) {
   }
 }
 
-loginForm.addEventListener("submit", (event) => {
+loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   loginError.textContent = "";
 
   try {
+    setBusy(true);
     const credentials = {
       accountName: accountInput.value,
       password: passwordInput.value,
       confirmPassword: confirmPasswordInput.value,
       displayName: displayNameInput.value,
     };
-    currentUser = authMode === "register" ? store.register(credentials) : store.login(credentials);
+    currentUser = authMode === "register" ? await store.register(credentials) : await store.login(credentials);
     accountInput.value = "";
     passwordInput.value = "";
     confirmPasswordInput.value = "";
@@ -734,7 +736,7 @@ loginForm.addEventListener("submit", (event) => {
     }
 
     if (error.message === "account_exists") {
-      loginError.textContent = "这个账号名已经注册过了，可以直接登录。";
+      loginError.textContent = "这个用户名已经注册过了，可以直接登录。";
       authMode = "login";
       renderAuthMode();
       passwordInput.focus();
@@ -742,13 +744,35 @@ loginForm.addEventListener("submit", (event) => {
     }
 
     if (error.message === "invalid_credentials") {
-      loginError.textContent = "账号名或密码不对。";
+      loginError.textContent = "用户名或密码不对。";
       passwordInput.focus();
       return;
     }
 
-    loginError.textContent = "先输入账号名。";
+    if (error.message === "User already registered") {
+      loginError.textContent = "这个用户名已经注册过了，可以直接登录。";
+      authMode = "login";
+      renderAuthMode();
+      passwordInput.focus();
+      return;
+    }
+
+    if (error.message === "Email not confirmed") {
+      loginError.textContent = "这个账号还没有完成确认。现在可以先新注册一个用户名。";
+      accountInput.focus();
+      return;
+    }
+
+    if (error.message === "invalid_username") {
+      loginError.textContent = "用户名用 3-40 位字母、数字、点、下划线或短横线。";
+      accountInput.focus();
+      return;
+    }
+
+    loginError.textContent = "先输入用户名。";
     accountInput.focus();
+  } finally {
+    setBusy(false);
   }
 });
 
@@ -762,8 +786,8 @@ registerModeButton.addEventListener("click", () => {
   renderAuthMode();
 });
 
-logoutButton.addEventListener("click", () => {
-  store.logout();
+logoutButton.addEventListener("click", async () => {
+  await store.logout();
   currentUser = null;
   focusedItemId = null;
   completionVisible = false;

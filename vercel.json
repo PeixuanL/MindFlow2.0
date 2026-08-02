@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/src/prototype/index.html"
+    },
+    {
+      "source": "/:path((?!api/).*)",
+      "destination": "/src/prototype/:path"
+    }
+  ]
+}

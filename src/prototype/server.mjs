@@ -9,6 +9,8 @@ const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 18811);
 const ollamaEndpoint = process.env.OLLAMA_ENDPOINT || "http://127.0.0.1:11434";
 const ollamaModel = process.env.OLLAMA_MODEL || "qwen2.5:3b";
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || "";
 const ollamaClient = createOllamaClient({
   endpoint: ollamaEndpoint,
   model: ollamaModel,
@@ -74,6 +76,19 @@ function serveStatic(request, response) {
 }
 
 const server = createServer(async (request, response) => {
+  if (request.method === "GET" && request.url === "/api/supabase-config") {
+    if (!supabaseUrl || !supabasePublishableKey) {
+      sendJson(response, 503, { error: "cloud_config_missing" });
+      return;
+    }
+
+    sendJson(response, 200, {
+      supabaseUrl,
+      supabaseKey: supabasePublishableKey,
+    });
+    return;
+  }
+
   if (request.method === "POST" && request.url === "/api/organize") {
     try {
       const body = await readJsonBody(request);
