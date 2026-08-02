@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/prototype/organizer.test.js"
+    "dev": "node src/prototype/server.mjs",
+    "test": "node --test tests/prototype/*.test.js"
   }
 }

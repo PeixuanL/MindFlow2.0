@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindFlow UI Reference Prototype</title>
+    <link rel="stylesheet" href="./ui-reference-prototype.css" />
+  </head>
+  <body>
+    <main class="reference-page" aria-label="MindFlow UI 参考与原型">
+      <section class="study-header" aria-labelledby="study-title">
+        <p class="eyebrow">MindFlow UI reference study</p>
+        <h1 id="study-title">从参考里提炼，而不是照抄</h1>
+        <p>
+          目标是做一个移动端首页方向：低压记录、只推荐一件事、给出一个很小的下一步，
+          同时保留“其他想法都还在”的安全感。
+        </p>
+      </section>
+
+      <section class="reference-grid" aria-label="5 个参考案例">
+        <article class="reference-card journal">
+          <span>参考案例</span>
+          <h2>Apple Journal</h2>
+          <p class="reference-theme">低压记录 / 避免空白页</p>
+          <p>借鉴它“从建议开始写”的感觉，但不做回忆相册式入口。</p>
+        </article>
+
+        <article class="reference-card tiimo">
+          <span>参考案例</span>
+          <h2>Tiimo</h2>
+          <p class="reference-theme">神经多样性 / 可执行计划</p>
+          <p>借鉴脑内倾倒到清晰步骤的路径，但不做满屏日程。</p>
+        </article>
+
+        <article class="reference-card structured">
+          <span>参考案例</span>
+          <h2>Structured</h2>
+          <p class="reference-theme">时间线 / 快速暂存</p>
+          <p>借鉴“一天里只看清下一段”的秩序感，但减少时间块压力。</p>
+        </article>
+
+        <article class="reference-card feel">
+          <span>参考案例</span>
+          <h2>How We Feel</h2>
+          <p class="reference-theme">情绪词汇 / 科学但亲近</p>
+          <p>借鉴柔和色彩和精确表达，让建议像陪用户辨认状态。</p>
+        </article>
+
+        <article class="reference-card finch">
+          <span>参考案例</span>
+          <h2>Finch</h2>
+          <p class="reference-theme">轻量自我照顾 / 小完成感</p>
+          <p>借鉴小步完成的反馈，但不加入宠物、积分或游戏化层。</p>
+        </article>
+      </section>
+
+      <section class="style-board" aria-labelledby="style-title">
+        <div>
+          <p class="eyebrow">视觉风格提炼</p>
+          <h2 id="style-title">温暖，但不甜腻；清楚，但不催促</h2>
+          <p>
+            用纸感底色承接杂乱输入，用沉静绿色表示“可执行”，用少量陶土色标记推荐。
+            整体避免红点、排行榜、复杂待办墙，也不把第一屏做成传统任务管理面板。
+          </p>
+        </div>
+
+        <div class="swatches" aria-label="色彩方向">
+          <div><span style="--swatch: #fbfaf6"></span><p>Paper</p></div>
+          <div><span style="--swatch: #eef4ef"></span><p>Mist</p></div>
+          <div><span style="--swatch: #242a26"></span><p>Ink</p></div>
+          <div><span style="--swatch: #244338"></span><p>Green</p></div>
+          <div><span style="--swatch: #bb765e"></span><p>Clay</p></div>
+          <div><span style="--swatch: #edf3fb"></span><p>Blue</p></div>
+          <div><span style="--swatch: #f3eef8"></span><p>Lavender</p></div>
+        </div>
+      </section>
+
+      <section class="phone-row" aria-label="MindFlow 手机端状态稿">
+        <article class="phone-frame primary-phone" aria-labelledby="state-home">
+          <div class="phone-caption">
+            <span>主方案</span>
+            <p>上面是一件当前建议，下面顺手继续记录。</p>
+          </div>
+          <div class="phone-screen">
+            <div class="status-bar" aria-hidden="true">
+              <span>9:41</span>
+              <span>5G 100%</span>
+            </div>
+
+            <header class="app-header">
+              <div>
+                <p class="app-kicker">今天</p>
+                <h2>MindFlow</h2>
+              </div>
+              <button class="icon-button" type="button" aria-label="更多"><span></span></button>
+            </header>
+
+            <section class="recommendation-card" aria-labelledby="state-home">
+              <div class="recommendation-meta">
+                <p class="state-label" id="state-home">也许可以先看这个</p>
+                <span>优先级 1</span>
+              </div>
+              <h3>给牙医打电话预约</h3>
+              <div class="next-step-card" aria-label="下一步">
+                <p>可以小到这一步</p>
+                <strong>打开通讯录，找到诊所电话。</strong>
+              </div>
+              <div class="button-pair">
+                <button class="secondary" type="button">先不管</button>
+                <button type="button">看一下</button>
+              </div>
+            </section>
+
+            <p class="safe-pill"><span></span>其他想法都还在</p>
+
+            <section class="bottom-capture" aria-label="顺手记一笔">
+              <label for="home-more-thoughts">又想到什么</label>
+              <div class="textarea-like muted" id="home-more-thoughts">继续放在这里。</div>
+              <button type="button">帮我捋一捋</button>
+            </section>
+          </div>
+        </article>
+
+        <article class="phone-frame" aria-labelledby="state-organized">
+          <div class="phone-caption">
+            <span>先不管后</span>
+            <p>当前事项先放下，按优先级看下一件。</p>
+          </div>
+          <div class="phone-screen">
+            <div class="status-bar" aria-hidden="true">
+              <span>9:41</span>
+              <span>5G 100%</span>
+            </div>
+
+            <header class="app-header">
+              <div>
+                <p class="app-kicker">整理好了</p>
+                <h2>MindFlow</h2>
+              </div>
+              <button class="icon-button" type="button" aria-label="更多"><span></span></button>
+            </header>
+
+            <section class="recommendation-card" aria-labelledby="state-organized">
+              <div class="recommendation-meta">
+                <p class="state-label" id="state-organized">也许可以先看这个</p>
+                <span>优先级 2</span>
+              </div>
+              <h3>周末整理房间</h3>
+              <div class="next-step-card" aria-label="下一步">
+                <p>可以小到这一步</p>
+                <strong>先把桌面上的杯子拿走。</strong>
+              </div>
+              <div class="button-pair">
+                <button class="secondary" type="button">先不管</button>
+                <button type="button">看一下</button>
+              </div>
+            </section>
+
+            <p class="safe-pill"><span></span>其他想法都还在</p>
+
+            <section class="mini-capture dock-bottom" aria-label="继续记录">
+              <label for="more-thoughts">又想到什么</label>
+              <div class="textarea-like muted" id="more-thoughts">继续放在这里。</div>
+            </section>
+          </div>
+        </article>
+
+        <article class="phone-frame" aria-labelledby="state-focus">
+          <div class="phone-caption">
+            <span>进入事项后</span>
+            <p>点“看一下”后，只保留当前这一件和几个很小的步骤。</p>
+          </div>
+          <div class="phone-screen">
+            <div class="status-bar" aria-hidden="true">
+              <span>9:41</span>
+              <span>5G 100%</span>
+            </div>
+
+            <header class="app-header">
+              <div>
+                <p class="app-kicker">现在</p>
+                <h2>MindFlow</h2>
+              </div>
+              <button class="icon-button" type="button" aria-label="更多"><span></span></button>
+            </header>
+
+            <section class="recommendation-card focus-recommendation" aria-labelledby="state-focus">
+              <div class="recommendation-meta">
+                <p class="state-label" id="state-focus">只看这一件</p>
+                <span>当前</span>
+              </div>
+              <h3>给牙医打电话预约</h3>
+              <div class="next-step-card step-list" aria-label="小步骤">
+                <p>可以小到这一步</p>
+                <strong>1. 找到诊所电话</strong>
+                <strong>2. 问最近可约时间</strong>
+                <strong>3. 记下确认时间</strong>
+              </div>
+            </section>
+
+            <p class="safe-pill"><span></span>其他想法都还在</p>
+
+            <section class="bottom-capture compact focus-mode" aria-label="临时记录">
+              <label for="interruptions">先放一下</label>
+              <div class="textarea-like muted" id="interruptions">不用打断现在这件事。</div>
+              <p class="bottom-note">其他想法都还在</p>
+            </section>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

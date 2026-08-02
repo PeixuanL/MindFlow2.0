@@ -7,48 +7,300 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <header class="top-bar">
-        <div class="brand">MindFlow</div>
-        <div class="today-label">今日</div>
-      </header>
-
-      <section class="hero-section" aria-labelledby="capture-title">
-        <h1 id="capture-title">先不用想清楚</h1>
-        <p class="supporting-copy">想到什么都可以先放在这里。</p>
-      </section>
-
-      <section id="suggestion-section" class="suggestion-section is-hidden" aria-live="polite" aria-labelledby="suggestion-label">
-        <p class="eyebrow" id="suggestion-label">也许可以先看这个</p>
-        <h2 id="suggestion-title">给牙医打电话预约</h2>
-        <p id="suggestion-reason" class="reason">它比较清楚，不需要一次处理太多。</p>
-        <div class="action-row">
-          <button id="look-button" class="secondary-button" type="button">看一下</button>
-          <button id="skip-button" class="quiet-button" type="button">先不管</button>
-        </div>
-      </section>
-
-      <section id="add-more-section" class="add-more-section is-hidden" aria-labelledby="add-more-title">
-        <h2 id="add-more-title">又想到什么</h2>
-        <p>继续放在这里。</p>
-      </section>
-
-      <section class="capture-section" aria-label="记一笔">
-        <div class="capture-header">
-          <p class="capture-title">记一笔</p>
-          <p id="status-message" class="status-message">其他想法都还在</p>
+    <main class="app-shell is-login-shell">
+      <aside id="app-sidebar" class="app-sidebar" aria-label="主导航">
+        <div class="sidebar-brand">
+          <div class="brand-mark" aria-hidden="true">M</div>
+          <div class="brand">MindFlow</div>
+          <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="收起侧栏" title="收起">
+            <span aria-hidden="true">‹</span>
+            <span class="tooltip">收起</span>
+          </button>
         </div>
 
-        <label class="sr-only" for="thought-input">写下想到的事</label>
-        <textarea
-          id="thought-input"
-          class="thought-input"
-          rows="5"
-          placeholder="例：牙医还没约，周末整理房间，保险那个事也要看，小王消息没回，论文材料有点烦..."
-        ></textarea>
+        <nav class="sidebar-nav" aria-label="主要页面">
+          <button id="home-nav-button" class="sidebar-link is-active" type="button" data-nav="home" aria-current="page">
+            <span aria-hidden="true">⌂</span>
+            <span>首页</span>
+          </button>
+          <button id="items-nav-button" class="sidebar-link" type="button" data-nav="items">
+            <span aria-hidden="true">☰</span>
+            <span>全部想法</span>
+          </button>
+        </nav>
 
-        <button id="organize-button" class="primary-button" type="button">帮我捋一捋</button>
-      </section>
+        <div class="sidebar-spacer"></div>
+
+        <button id="sidebar-completed-link" class="sidebar-soft-link" type="button" data-nav="items" data-tab-target="done">
+          <span aria-hidden="true">✓</span>
+          <span>最近完成</span>
+          <strong id="sidebar-completed-count">0</strong>
+        </button>
+
+        <div class="sidebar-user">
+          <div class="brand-mark small" aria-hidden="true">M</div>
+          <div>
+            <p id="sidebar-user-name">今天</p>
+            <span>本地空间</span>
+          </div>
+        </div>
+      </aside>
+
+      <div class="app-main">
+        <header class="top-bar">
+          <div>
+            <p id="today-label" class="today-label">今天</p>
+            <div class="brand mobile-brand">MindFlow</div>
+          </div>
+          <div id="top-actions" class="top-actions is-hidden">
+            <button class="text-button" type="button" data-nav="home">首页</button>
+            <button class="text-button" type="button" data-nav="items">全部想法</button>
+            <button id="logout-button" class="icon-button" type="button" aria-label="退出"><span></span></button>
+          </div>
+        </header>
+
+        <section id="login-view" class="view-section login-page" aria-labelledby="login-title">
+          <section class="hero-section login-hero">
+            <div class="login-brand">
+              <div class="brand-mark" aria-hidden="true">M</div>
+              <div class="brand">MindFlow</div>
+            </div>
+            <h1 id="login-title">先有一个自己的角落</h1>
+            <p class="supporting-copy">注册一个本地账号，之后用账号名和密码登录。</p>
+          </section>
+
+          <form id="login-form" class="capture-section auth-form">
+            <div class="item-tabs auth-mode-tabs" role="group" aria-label="账号入口">
+              <button id="login-mode-button" class="tab-button is-active" type="button" aria-pressed="true">登录</button>
+              <button id="register-mode-button" class="tab-button" type="button" aria-pressed="false">注册账号</button>
+            </div>
+            <label class="capture-title" for="account-input">账号名</label>
+            <input id="account-input" class="text-input" type="text" maxlength="40" autocomplete="username" />
+            <label class="capture-title" for="password-input">密码</label>
+            <input id="password-input" class="text-input" type="password" maxlength="80" autocomplete="current-password" />
+            <div id="register-only-fields">
+              <label class="capture-title" for="confirm-password-input">确认密码</label>
+              <input id="confirm-password-input" class="text-input" type="password" maxlength="80" autocomplete="new-password" />
+              <label class="capture-title" for="display-name-input">显示名</label>
+              <input id="display-name-input" class="text-input" type="text" maxlength="40" autocomplete="name" placeholder="可选" />
+            </div>
+            <p id="login-error" class="field-error" aria-live="polite"></p>
+            <button id="login-button" class="primary-button" type="submit">登录 MindFlow</button>
+          </form>
+        </section>
+
+        <section id="home-view" class="view-section home-layout is-hidden" aria-labelledby="capture-title">
+          <div class="home-primary">
+            <section class="hero-section">
+              <h1 id="capture-title">先不用想清楚</h1>
+              <p class="supporting-copy">想到什么都可以先放在这里。</p>
+            </section>
+
+            <section class="capture-section" aria-label="记一笔">
+              <div class="capture-header">
+                <p id="capture-title-label" class="capture-title">记一笔</p>
+              </div>
+
+              <label class="sr-only" for="thought-input">写下想到的事</label>
+              <div class="thought-input-shell">
+                <textarea
+                  id="thought-input"
+                  class="thought-input"
+                  rows="5"
+                  maxlength="500"
+                  placeholder="例：牙医还没约，周末整理房间，保险那个事也要看，小王消息没回，论文材料有点烦..."
+                ></textarea>
+                <div class="capture-tools">
+                  <button id="voice-button" class="voice-button" type="button"><span aria-hidden="true">◦</span>语音输入</button>
+                  <p id="voice-status" class="tool-status" aria-live="polite"></p>
+                  <span id="thought-input-count" class="input-count">0/500</span>
+                </div>
+              </div>
+              <p id="capture-error" class="field-error" aria-live="polite"></p>
+
+              <button id="organize-button" class="primary-button" type="button">帮我捋一捋</button>
+            </section>
+
+            <section id="suggestion-section" class="suggestion-section is-hidden" aria-live="polite" aria-labelledby="suggestion-title">
+              <div class="recommendation-meta">
+                <p class="eyebrow" id="suggestion-label">也许可以先看这个</p>
+                <span id="priority-chip">High</span>
+              </div>
+              <h2 id="suggestion-title">给牙医打电话预约</h2>
+              <div class="next-step-panel" aria-label="下一步">
+                <p>可以小到这一步</p>
+                <strong id="suggestion-next-step">打开通讯录，找到诊所电话。</strong>
+              </div>
+              <p id="suggestion-reason" class="reason">它比较清楚，不需要一次处理太多。</p>
+              <div class="action-row">
+                <button id="skip-button" class="secondary-button" type="button">先不管</button>
+                <button id="look-button" class="primary-action-button" type="button">看一下</button>
+              </div>
+              <p id="status-message" class="safe-pill" aria-live="polite"><span></span>其他想法都还在，随时可以回来查看。</p>
+            </section>
+
+            <section id="candidate-section" class="suggestion-section is-hidden" aria-live="polite" aria-labelledby="candidate-title">
+              <div class="recommendation-meta">
+                <p class="eyebrow">停车区里有一件</p>
+                <span>可选</span>
+              </div>
+              <h2 id="candidate-title">看一下保险那件事</h2>
+              <p id="candidate-reason" class="reason">先安全放着。</p>
+              <div class="action-row">
+                <button id="keep-parked-button" class="secondary-button" type="button">继续放着</button>
+                <button id="restore-candidate-button" class="primary-action-button" type="button">放到现在</button>
+              </div>
+            </section>
+
+            <section id="focus-section" class="suggestion-section focus-section is-hidden" aria-live="polite" aria-labelledby="focus-title">
+              <div class="recommendation-meta">
+                <p class="eyebrow">只看这一件</p>
+                <span id="focus-priority">当前</span>
+              </div>
+              <h2 id="focus-title">给牙医打电话预约</h2>
+              <div class="next-step-panel step-list" aria-label="小步骤">
+                <p>可以小到这一步</p>
+                <ol id="focus-steps"></ol>
+              </div>
+              <div class="action-row">
+                <button id="focus-detail-button" class="secondary-button" type="button">去详情</button>
+                <button id="focus-done-button" class="primary-action-button" type="button">完成这件</button>
+              </div>
+            </section>
+
+            <section id="done-section" class="suggestion-section is-hidden" aria-live="polite">
+              <div class="recommendation-meta">
+                <p class="eyebrow">这件完成了</p>
+                <span>Done</span>
+              </div>
+              <h2>先放轻一点</h2>
+              <div class="action-row">
+                <button id="rest-button" class="secondary-button" type="button">先休息一下</button>
+                <button id="see-another-button" class="primary-action-button" type="button">再看一件</button>
+              </div>
+            </section>
+
+            <section id="toast" class="toast is-hidden" aria-live="polite">
+              <p id="toast-message">已经帮你保存好了</p>
+              <button id="toast-action" class="secondary-button" type="button">去看看</button>
+            </section>
+          </div>
+
+          <aside id="home-sidebar" class="home-sidebar" aria-label="首页想法概览">
+            <section class="sidebar-panel" aria-labelledby="home-thoughts-title">
+              <div class="panel-header">
+                <h2 id="home-thoughts-title">全部想法</h2>
+                <button id="view-all-thoughts-button" class="panel-link" type="button" data-nav="items">查看全部想法 ›</button>
+              </div>
+              <div id="home-thoughts-list" class="home-row-list"></div>
+              <p id="home-thoughts-count" class="panel-footnote">共 0 条想法</p>
+            </section>
+
+            <section class="sidebar-panel compact-panel" aria-labelledby="home-completed-title">
+              <div class="panel-header">
+                <h2 id="home-completed-title">最近完成</h2>
+                <span id="recent-completed-count" class="panel-count">0</span>
+              </div>
+              <div id="home-completed-list" class="home-row-list completed-list"></div>
+              <button id="view-all-completed-button" class="panel-link muted-link" type="button" data-nav="items" data-tab-target="done">查看全部完成 ›</button>
+            </section>
+          </aside>
+        </section>
+
+        <section id="items-view" class="view-section is-hidden" aria-labelledby="items-title">
+          <section class="hero-section compact-hero">
+            <h1 id="items-title">这些都在</h1>
+            <p class="supporting-copy">Active / Parking / Done 会跟着你的操作更新。</p>
+          </section>
+
+        <form id="manual-add-form" class="inline-add-form">
+          <label class="sr-only" for="manual-title-input">新增想法</label>
+          <input id="manual-title-input" class="text-input" type="text" maxlength="120" placeholder="临时补一件事" />
+          <button id="manual-add-button" class="secondary-button" type="submit">新增</button>
+          <p id="manual-add-error" class="field-error" aria-live="polite"></p>
+        </form>
+
+        <div id="item-tabs" class="item-tabs" role="tablist" aria-label="想法状态">
+          <button id="active-tab" class="tab-button is-active" type="button" role="tab" aria-controls="active-panel" aria-selected="true" data-tab="active">Active</button>
+          <button id="parking-tab" class="tab-button" type="button" role="tab" aria-controls="parking-panel" aria-selected="false" data-tab="parking">Parking</button>
+          <button id="done-tab" class="tab-button" type="button" role="tab" aria-controls="done-panel" aria-selected="false" data-tab="done">Done</button>
+        </div>
+
+        <section id="active-panel" class="list-section" role="tabpanel" aria-labelledby="active-tab">
+          <h2 id="active-title">Active</h2>
+          <div id="active-list" class="item-list"></div>
+        </section>
+
+        <section id="parking-panel" class="list-section is-hidden" role="tabpanel" aria-labelledby="parking-tab">
+          <h2 id="parking-title">Parking</h2>
+          <div id="parking-list" class="item-list"></div>
+        </section>
+
+        <section id="done-panel" class="list-section is-hidden" role="tabpanel" aria-labelledby="done-tab">
+          <h2 id="done-title">Done</h2>
+          <div id="done-list" class="item-list"></div>
+        </section>
+
+        <section id="undo-toast" class="toast is-hidden" aria-live="polite">
+          <p id="undo-message">已删除</p>
+          <button id="undo-button" class="secondary-button" type="button">撤销</button>
+        </section>
+        </section>
+
+        <section id="detail-view" class="view-section is-hidden" aria-labelledby="detail-title">
+          <section class="hero-section compact-hero">
+            <p class="eyebrow">想法详情</p>
+            <h1 id="detail-title">编辑这一件</h1>
+          </section>
+
+        <form id="detail-form" class="detail-form">
+          <label class="capture-title" for="detail-title-input">标题</label>
+          <input id="detail-title-input" class="text-input" type="text" maxlength="120" />
+
+          <label class="capture-title" for="detail-priority-input">优先级</label>
+          <select id="detail-priority-input" class="text-input">
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+
+          <label class="capture-title" for="detail-status-input">状态</label>
+          <select id="detail-status-input" class="text-input">
+            <option value="active">Active</option>
+            <option value="parking">Parking</option>
+            <option value="done">Done</option>
+          </select>
+
+          <label class="capture-title" for="detail-due-at-input">截止时间</label>
+          <input id="detail-due-at-input" class="text-input" type="text" maxlength="80" placeholder="例：2026-08-04T18:00:00+08:00" />
+
+          <label class="capture-title" for="detail-tags-input">标签</label>
+          <input id="detail-tags-input" class="text-input" type="text" maxlength="120" placeholder="用逗号分隔，例如：申请, 材料" />
+
+          <label class="capture-title" for="detail-reason-input">推荐理由</label>
+          <textarea id="detail-reason-input" class="thought-input compact-textarea" rows="3" maxlength="180"></textarea>
+
+          <label class="capture-title" for="detail-parking-reason-input">Parking reason</label>
+          <textarea id="detail-parking-reason-input" class="thought-input compact-textarea" rows="3" maxlength="180"></textarea>
+
+          <div class="steps-editor">
+            <div class="capture-header">
+              <p class="capture-title">小步骤</p>
+              <button id="add-step-button" class="secondary-button small-button" type="button">新增一步</button>
+            </div>
+            <div id="detail-steps"></div>
+          </div>
+
+          <p id="detail-error" class="field-error" aria-live="polite"></p>
+          <p id="detail-success" class="field-success" aria-live="polite"></p>
+
+          <div class="action-row">
+            <button id="detail-back-button" class="secondary-button" type="button">返回全部想法</button>
+            <button id="detail-save-button" class="primary-action-button" type="submit">保存</button>
+          </div>
+        </form>
+        </section>
+      </div>
     </main>
 
     <script type="module" src="./app.js"></script>

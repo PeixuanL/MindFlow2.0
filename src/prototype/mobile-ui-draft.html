@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindFlow Mobile UI Draft</title>
+    <link rel="stylesheet" href="./mobile-ui-draft.css" />
+  </head>
+  <body>
+    <main class="draft-board" aria-label="MindFlow 手机端 UI 稿">
+      <section class="phone-frame" aria-labelledby="state-reminder">
+        <div class="phone-screen">
+          <div class="status-bar" aria-hidden="true">
+            <span>9:41</span>
+            <span>5G 100%</span>
+          </div>
+
+          <header class="app-header">
+            <div>
+              <p class="app-kicker">今天</p>
+              <h1>MindFlow</h1>
+            </div>
+            <button class="icon-button" type="button" aria-label="更多">
+              <span aria-hidden="true"></span>
+            </button>
+          </header>
+
+          <section class="top-prompt" aria-labelledby="state-reminder">
+            <p class="state-label" id="state-reminder">也许可以先看这个</p>
+            <h2>给牙医打电话预约</h2>
+            <p class="reason">它比较清楚，不需要一次处理太多。</p>
+          </section>
+
+          <section class="next-step" aria-label="下一步">
+            <p class="step-label">可以小到这一步</p>
+            <p>打开通讯录，找到诊所电话。</p>
+          </section>
+
+          <section class="soft-note" aria-label="保存提示">
+            <span class="note-dot" aria-hidden="true"></span>
+            <p>其他想法都还在</p>
+          </section>
+
+          <section class="bottom-input" aria-label="顺手记一笔">
+            <div class="input-heading">
+              <div>
+                <p class="input-kicker">先不用想清楚</p>
+                <h3>想到什么都可以先放在这里。</h3>
+              </div>
+            </div>
+            <textarea aria-label="想到的事">牙医还没约，周末整理房间，保险那个事也要看，小王消息没回，论文材料有点烦...</textarea>
+            <button class="primary-action" type="button">帮我捋一捋</button>
+          </section>
+        </div>
+      </section>
+
+      <section class="phone-frame" aria-labelledby="state-suggested">
+        <div class="phone-screen">
+          <div class="status-bar" aria-hidden="true">
+            <span>9:41</span>
+            <span>5G 100%</span>
+          </div>
+
+          <header class="app-header compact">
+            <div>
+              <p class="app-kicker">整理好了</p>
+              <h1>MindFlow</h1>
+            </div>
+            <button class="icon-button" type="button" aria-label="更多">
+              <span aria-hidden="true"></span>
+            </button>
+          </header>
+
+          <section class="top-prompt" aria-labelledby="state-suggested">
+            <p class="state-label" id="state-suggested">也许可以先看这个</p>
+            <h2>给牙医打电话预约</h2>
+            <p class="reason">它比较清楚，不需要一次处理太多。</p>
+          </section>
+
+          <section class="next-step" aria-label="下一步">
+            <p class="step-label">可以小到这一步</p>
+            <p>打开通讯录，找到诊所电话。</p>
+          </section>
+
+          <section class="soft-note" aria-label="保存提示">
+            <span class="note-dot" aria-hidden="true"></span>
+            <p>其他想法都还在</p>
+          </section>
+
+          <section class="bottom-input compact-input" aria-label="继续记录">
+            <label for="more-thoughts">又想到什么</label>
+            <textarea id="more-thoughts" aria-label="继续记录" placeholder="继续放在这里。"></textarea>
+            <div class="action-pair">
+              <button class="secondary-action" type="button">先不管</button>
+              <button class="primary-action" type="button">看一下</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="phone-frame" aria-labelledby="state-focus">
+        <div class="phone-screen">
+          <div class="status-bar" aria-hidden="true">
+            <span>9:41</span>
+            <span>5G 100%</span>
+          </div>
+
+          <header class="app-header compact">
+            <div>
+              <p class="app-kicker">现在</p>
+              <h1>MindFlow</h1>
+            </div>
+            <button class="icon-button" type="button" aria-label="更多">
+              <span aria-hidden="true"></span>
+            </button>
+          </header>
+
+          <section class="session-card" aria-labelledby="state-focus">
+            <p class="state-label" id="state-focus">只看这一件</p>
+            <h2>给牙医打电话预约</h2>
+            <div class="step-list" aria-label="小步骤">
+              <p>1. 找到诊所电话</p>
+              <p>2. 问最近可约时间</p>
+              <p>3. 记下确认时间</p>
+            </div>
+          </section>
+
+          <section class="parking-pill" aria-label="保存提示">
+            <p>新冒出来的想法，可以先放下面。</p>
+          </section>
+
+          <section class="bottom-input compact-input focus-mode" aria-label="临时记录">
+            <label for="interruptions">先放一下</label>
+            <textarea id="interruptions" aria-label="临时记录" placeholder="不用打断现在这件事。"></textarea>
+            <div class="bottom-safe-note">其他想法都还在</div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

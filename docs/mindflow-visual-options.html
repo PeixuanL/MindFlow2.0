@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindFlow Visual Options</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #eef0ee;
+        color: #1f2524;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      .page {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(390px, 1fr));
+        gap: 32px;
+        width: max-content;
+        min-width: 100%;
+        padding: 40px;
+      }
+
+      .phone {
+        position: relative;
+        width: 390px;
+        height: 844px;
+        overflow: hidden;
+        border: 1px solid rgba(21, 28, 27, 0.12);
+        border-radius: 32px;
+        background: #faf9f5;
+        box-shadow: 0 28px 80px rgba(31, 37, 36, 0.22);
+      }
+
+      .status-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 34px;
+        padding: 0 22px;
+        color: rgba(31, 37, 36, 0.82);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .status-icons {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .dot,
+      .pill,
+      .battery {
+        display: block;
+        border: 1px solid currentColor;
+      }
+
+      .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .pill {
+        width: 14px;
+        height: 7px;
+        border-radius: 999px;
+      }
+
+      .battery {
+        width: 18px;
+        height: 9px;
+        border-radius: 3px;
+        background: linear-gradient(90deg, currentColor 72%, transparent 72%);
+      }
+
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .mark {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 14px;
+      }
+
+      .chip {
+        min-height: 28px;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      button {
+        border: 0;
+        font: inherit;
+      }
+
+      .action-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .button {
+        display: flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        padding: 0 14px;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .muted {
+        color: rgba(31, 37, 36, 0.62);
+      }
+
+      .option-a {
+        background: #f6f7f3;
+      }
+
+      .option-a .inner {
+        display: flex;
+        height: calc(100% - 34px);
+        flex-direction: column;
+        padding: 18px 20px 20px;
+      }
+
+      .option-a .mark {
+        background: #245a4f;
+      }
+
+      .option-a .chip {
+        background: #e4ebe3;
+        color: #35544f;
+      }
+
+      .option-a .hero {
+        padding-top: 42px;
+      }
+
+      .option-a h1 {
+        max-width: 260px;
+        color: #1f2524;
+        font-size: 34px;
+        line-height: 1.14;
+        font-weight: 820;
+      }
+
+      .option-a .lead {
+        margin-top: 12px;
+        color: #61706b;
+        font-size: 16px;
+        line-height: 1.55;
+      }
+
+      .option-a .capture {
+        margin-top: 34px;
+        border: 1px solid #dce2dc;
+        border-radius: 18px;
+        background: #fffefa;
+        box-shadow: 0 18px 50px rgba(47, 70, 63, 0.1);
+      }
+
+      .option-a .capture-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px 16px 0;
+      }
+
+      .option-a .capture-title {
+        color: #26312f;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .option-a textarea {
+        width: 100%;
+        height: 142px;
+        resize: none;
+        border: 0;
+        outline: 0;
+        padding: 14px 16px 10px;
+        background: transparent;
+        color: #2b3431;
+        font: inherit;
+        font-size: 15px;
+        line-height: 1.58;
+      }
+
+      .option-a .primary {
+        margin: 0 12px 12px;
+        background: #245a4f;
+        color: #fff;
+      }
+
+      .option-a .suggestion {
+        margin-top: auto;
+        border: 1px solid #dfe5de;
+        border-radius: 18px;
+        padding: 16px;
+        background: #ffffff;
+      }
+
+      .option-a .eyebrow {
+        color: #59706a;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .option-a .suggestion h2 {
+        margin-top: 9px;
+        color: #202928;
+        font-size: 21px;
+        line-height: 1.28;
+      }
+
+      .option-a .suggestion p {
+        margin-top: 8px;
+        color: #64736f;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .option-a .secondary {
+        margin-top: 14px;
+        background: #edf3ec;
+        color: #254f48;
+      }
+
+      .option-a .quiet {
+        margin-top: 14px;
+        background: #f6f7f3;
+        color: #68746f;
+      }
+
+      .option-b {
+        background: #f5f2ea;
+      }
+
+      .option-b .inner {
+        display: flex;
+        height: calc(100% - 34px);
+        flex-direction: column;
+        padding: 14px 14px 16px;
+      }
+
+      .option-b .panel {
+        min-height: 300px;
+        border-radius: 24px;
+        padding: 18px;
+        background: #252b28;
+        color: #fffdf7;
+      }
+
+      .option-b .mark {
+        background: #d8a94a;
+        color: #252b28;
+      }
+
+      .option-b .chip {
+        background: rgba(255, 255, 255, 0.1);
+        color: #e7dfd2;
+      }
+
+      .option-b h1 {
+        margin-top: 34px;
+        max-width: 245px;
+        font-size: 31px;
+        line-height: 1.12;
+      }
+
+      .option-b .lead {
+        margin-top: 12px;
+        color: #c8d2c6;
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
+      .option-b .focus-card {
+        margin-top: -42px;
+        margin-inline: 14px;
+        border: 1px solid rgba(37, 43, 40, 0.08);
+        border-radius: 20px;
+        padding: 18px;
+        background: #fffef9;
+        box-shadow: 0 22px 60px rgba(41, 41, 34, 0.16);
+      }
+
+      .option-b .eyebrow {
+        color: #7b693c;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .option-b .focus-card h2 {
+        margin-top: 8px;
+        color: #252b28;
+        font-size: 22px;
+        line-height: 1.26;
+      }
+
+      .option-b .focus-card p {
+        margin-top: 8px;
+        color: #6c6d65;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .option-b .secondary {
+        margin-top: 15px;
+        background: #252b28;
+        color: #fffefa;
+      }
+
+      .option-b .quiet {
+        margin-top: 15px;
+        background: #f0eee6;
+        color: #6d6b61;
+      }
+
+      .option-b .capture {
+        margin-top: 14px;
+        border: 1px solid #e1ddd2;
+        border-radius: 20px;
+        padding: 15px;
+        background: #fffefa;
+      }
+
+      .option-b .capture-head {
+        display: flex;
+        justify-content: space-between;
+        color: #252b28;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .option-b .note-lines {
+        display: grid;
+        gap: 9px;
+        margin-top: 15px;
+      }
+
+      .option-b .line {
+        height: 10px;
+        border-radius: 99px;
+        background: #e4e0d5;
+      }
+
+      .option-b .line:nth-child(1) {
+        width: 93%;
+      }
+
+      .option-b .line:nth-child(2) {
+        width: 74%;
+      }
+
+      .option-b .line:nth-child(3) {
+        width: 86%;
+      }
+
+      .option-b .primary {
+        margin-top: auto;
+        background: #d8a94a;
+        color: #252b28;
+      }
+
+      .option-c {
+        background: #f8f5f7;
+      }
+
+      .option-c .inner {
+        display: flex;
+        height: calc(100% - 34px);
+        flex-direction: column;
+        padding: 18px;
+      }
+
+      .option-c .mark {
+        background: #8a5d6f;
+      }
+
+      .option-c .chip {
+        background: #ece4e8;
+        color: #725263;
+      }
+
+      .option-c .hero-card {
+        margin-top: 18px;
+        border: 1px solid #e6dde2;
+        border-radius: 22px;
+        padding: 22px 20px;
+        background: #fffdfc;
+        box-shadow: 0 20px 60px rgba(101, 75, 88, 0.11);
+      }
+
+      .option-c h1 {
+        color: #30272c;
+        font-size: 32px;
+        line-height: 1.14;
+      }
+
+      .option-c .lead {
+        margin-top: 12px;
+        color: #74666d;
+        font-size: 15px;
+        line-height: 1.58;
+      }
+
+      .option-c .thought-box {
+        margin-top: 18px;
+        border: 1px solid #eadfe5;
+        border-radius: 18px;
+        padding: 16px;
+        background: #fbf7f9;
+      }
+
+      .option-c .thought-box p {
+        color: #4c4248;
+        font-size: 14px;
+        line-height: 1.58;
+      }
+
+      .option-c .primary {
+        margin-top: 14px;
+        background: #8a5d6f;
+        color: #fff;
+      }
+
+      .option-c .suggestion {
+        margin-top: 16px;
+        border: 1px solid #e6dde2;
+        border-radius: 22px;
+        padding: 17px;
+        background: #fffdfc;
+      }
+
+      .option-c .eyebrow {
+        color: #8a5d6f;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .option-c .suggestion h2 {
+        margin-top: 8px;
+        color: #30272c;
+        font-size: 21px;
+        line-height: 1.26;
+      }
+
+      .option-c .suggestion p {
+        margin-top: 8px;
+        color: #74666d;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .option-c .secondary {
+        margin-top: 14px;
+        background: #efe7eb;
+        color: #6d4b5a;
+      }
+
+      .option-c .quiet {
+        margin-top: 14px;
+        background: #f8f3f5;
+        color: #7f7278;
+      }
+
+      .option-c .saved {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: auto;
+        border: 1px solid #e7dfe3;
+        border-radius: 16px;
+        padding: 13px 14px;
+        background: #fffdfc;
+        color: #74666d;
+        font-size: 13px;
+      }
+
+      .option-c .saved strong {
+        color: #30272c;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <article class="phone option-a" id="option-a" aria-label="MindFlow 方案 A">
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-icons"><span class="dot"></span><span class="pill"></span><span class="battery"></span></span>
+        </div>
+        <div class="inner">
+          <header class="top">
+            <div class="brand"><span class="mark">M</span><span>MindFlow</span></div>
+            <span class="chip">今日</span>
+          </header>
+          <section class="hero">
+            <h1>先不用想清楚</h1>
+            <p class="lead">想到什么都可以先放在这里。</p>
+          </section>
+          <section class="capture">
+            <div class="capture-top">
+              <p class="capture-title">记一笔</p>
+              <p class="muted">其他想法都还在</p>
+            </div>
+            <textarea>牙医还没约，周末整理房间，保险那个事也要看，小王消息没回，论文材料有点烦...</textarea>
+            <div class="button primary">帮我捋一捋</div>
+          </section>
+          <section class="suggestion">
+            <p class="eyebrow">也许可以先看这个</p>
+            <h2>给牙医打电话预约</h2>
+            <p>它比较清楚，不需要一次处理太多。</p>
+            <div class="action-row">
+              <div class="button secondary">看一下</div>
+              <div class="button quiet">先不管</div>
+            </div>
+          </section>
+        </div>
+      </article>
+
+      <article class="phone option-b" id="option-b" aria-label="MindFlow 方案 B">
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-icons"><span class="dot"></span><span class="pill"></span><span class="battery"></span></span>
+        </div>
+        <div class="inner">
+          <section class="panel">
+            <header class="top">
+              <div class="brand"><span class="mark">M</span><span>MindFlow</span></div>
+              <span class="chip">已记录 5 条</span>
+            </header>
+            <h1>先不用想清楚</h1>
+            <p class="lead">想到什么都可以先放在这里。整理的事交给下一步。</p>
+          </section>
+          <section class="focus-card">
+            <p class="eyebrow">也许可以先看这个</p>
+            <h2>给牙医打电话预约</h2>
+            <p>这件事边界最清楚，处理完会立刻少一点牵挂。</p>
+            <div class="action-row">
+              <div class="button secondary">看一下</div>
+              <div class="button quiet">先不管</div>
+            </div>
+          </section>
+          <section class="capture">
+            <div class="capture-head">
+              <span>继续放进来</span>
+              <span class="muted">其他想法都还在</span>
+            </div>
+            <div class="note-lines" aria-hidden="true">
+              <span class="line"></span>
+              <span class="line"></span>
+              <span class="line"></span>
+            </div>
+          </section>
+          <div class="button primary">帮我捋一捋</div>
+        </div>
+      </article>
+
+      <article class="phone option-c" id="option-c" aria-label="MindFlow 方案 C">
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-icons"><span class="dot"></span><span class="pill"></span><span class="battery"></span></span>
+        </div>
+        <div class="inner">
+          <header class="top">
+            <div class="brand"><span class="mark">M</span><span>MindFlow</span></div>
+            <span class="chip">今日</span>
+          </header>
+          <section class="hero-card">
+            <h1>先不用想清楚</h1>
+            <p class="lead">想到什么都可以先放在这里。</p>
+            <div class="thought-box">
+              <p>牙医还没约，周末整理房间，保险那个事也要看，小王消息没回，论文材料有点烦...</p>
+            </div>
+            <div class="button primary">帮我捋一捋</div>
+          </section>
+          <section class="suggestion">
+            <p class="eyebrow">也许可以先看这个</p>
+            <h2>给牙医打电话预约</h2>
+            <p>可以只看这一件。其他想法都还在。</p>
+            <div class="action-row">
+              <div class="button secondary">看一下</div>
+              <div class="button quiet">先不管</div>
+            </div>
+          </section>
+          <section class="saved">
+            <span><strong>5 条</strong> 已放好</span>
+            <span>不用现在整理完</span>
+          </section>
+        </div>
+      </article>
+    </main>
+  </body>
+</html>

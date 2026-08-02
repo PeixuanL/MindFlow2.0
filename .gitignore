@@ -4,3 +4,7 @@
 node_modules/
 dist/
 coverage/
+.playwright-cli/
+.superdesign/config.json
+.superdesign/tmp/
+output/playwright/

@@ -13,6 +13,7 @@ A user opens MindFlow when their head feels full. They type a messy paragraph of
 - Static Web prototype that can run locally in a browser.
 - One mobile-first screen for thought capture.
 - One post-organizing state showing a single suggested item.
+- Recommendation module with priority, one small next step, and actions kept inside the same visual unit.
 - Mock organizing logic using local sample data or deterministic rules.
 - Copy direction from `docs/mvp-copy-direction.md`.
 - No first-screen parking section; only a lightweight "其他想法都还在" reassurance.
@@ -44,12 +45,23 @@ A user opens MindFlow when their head feels full. They type a messy paragraph of
 2. If the user presses the primary button with no input, the prototype should show a gentle inline prompt asking them to write something first.
 3. If the user enters text and presses the primary button, the prototype should show:
    - label: "也许可以先看这个".
+   - priority chip such as "优先级 1".
    - one recommended item.
+   - one small next step under "可以小到这一步".
    - short explanation: "它比较清楚，不需要一次处理太多。".
    - actions: "看一下" and "先不管".
-   - secondary input area for more thoughts.
-4. Pressing "看一下" should mark the suggestion as the current focus without adding pressure language.
-5. Pressing "先不管" should keep the item saved and show a calm message that the user can come back later.
+   - bottom capture area for more thoughts.
+4. Pressing "看一下" should enter a current-focus state with the selected item and a few small steps, without adding pressure language.
+5. Pressing "先不管" should keep the item saved and show the next recommendation by priority while keeping "其他想法都还在" visible.
+
+## Current Layout Decision
+
+The formal prototype should follow the current localhost reference direction:
+
+- The recommendation, priority chip, next step, and action buttons stay inside one visual module.
+- The bottom capture area stays visually anchored near the bottom of the phone screen.
+- The first screen does not expose a full parking list; it only reassures with "其他想法都还在".
+- The "看一下" state can borrow from the short execution-session idea by showing small steps for one current item.
 
 ## Copy Principles
 

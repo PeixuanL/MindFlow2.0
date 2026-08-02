@@ -1,0 +1,106 @@
+import { createReadStream, statSync } from "node:fs";
+import { createServer } from "node:http";
+import { extname, join, normalize } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createOllamaClient } from "./ollama-client.mjs";
+
+const rootDir = fileURLToPath(new URL(".", import.meta.url));
+const host = process.env.HOST || "127.0.0.1";
+const port = Number(process.env.PORT || 18811);
+const ollamaEndpoint = process.env.OLLAMA_ENDPOINT || "http://127.0.0.1:11434";
+const ollamaModel = process.env.OLLAMA_MODEL || "qwen2.5:3b";
+const ollamaClient = createOllamaClient({
+  endpoint: ollamaEndpoint,
+  model: ollamaModel,
+});
+
+const contentTypes = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+};
+
+function sendJson(response, statusCode, payload) {
+  response.writeHead(statusCode, {
+    "Content-Type": "application/json; charset=utf-8",
+  });
+  response.end(JSON.stringify(payload));
+}
+
+async function readJsonBody(request) {
+  let raw = "";
+
+  for await (const chunk of request) {
+    raw += chunk;
+    if (raw.length > 12000) {
+      throw new Error("body_too_large");
+    }
+  }
+
+  return JSON.parse(raw || "{}");
+}
+
+function serveStatic(request, response) {
+  const url = new URL(request.url, `http://${host}:${port}`);
+  const requestedPath = url.pathname === "/" ? "/index.html" : url.pathname;
+  const filePath = normalize(join(rootDir, requestedPath));
+
+  if (!filePath.startsWith(rootDir)) {
+    response.writeHead(403);
+    response.end("Forbidden");
+    return;
+  }
+
+  try {
+    const stats = statSync(filePath);
+    if (!stats.isFile()) {
+      response.writeHead(404);
+      response.end("Not found");
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": contentTypes[extname(filePath)] || "application/octet-stream",
+      "Content-Length": stats.size,
+    });
+    createReadStream(filePath).pipe(response);
+  } catch {
+    response.writeHead(404);
+    response.end("Not found");
+  }
+}
+
+const server = createServer(async (request, response) => {
+  if (request.method === "POST" && request.url === "/api/organize") {
+    try {
+      const body = await readJsonBody(request);
+      const rawText = typeof body.rawText === "string" ? body.rawText : "";
+      if (!rawText.trim()) {
+        sendJson(response, 400, { error: "empty_input" });
+        return;
+      }
+
+      const aiJson = await ollamaClient({ rawText });
+      sendJson(response, 200, { aiJson });
+    } catch {
+      sendJson(response, 503, { error: "local_ai_unavailable" });
+    }
+    return;
+  }
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    response.writeHead(405);
+    response.end("Method not allowed");
+    return;
+  }
+
+  serveStatic(request, response);
+});
+
+server.listen(port, host, () => {
+  console.log(`MindFlow prototype running at http://${host}:${port}`);
+  console.log(`Local AI endpoint: ${ollamaEndpoint} (${ollamaModel})`);
+});
