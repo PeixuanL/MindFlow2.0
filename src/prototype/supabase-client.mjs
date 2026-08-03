@@ -22,6 +22,18 @@ function createError(message, payload) {
   return error;
 }
 
+function normalizeSessionPayload(payload) {
+  if (payload?.session) {
+    return payload.session;
+  }
+
+  if (payload?.access_token && payload?.user) {
+    return payload;
+  }
+
+  return null;
+}
+
 export function createSupabaseRestClient(options = {}) {
   const configUrl = options.configUrl ?? "/api/supabase-config";
   const storage = options.storage ?? globalThis.localStorage;
@@ -130,12 +142,16 @@ export function createSupabaseRestClient(options = {}) {
         }),
         session: null,
       });
+      const session = normalizeSessionPayload(payload);
 
-      if (payload?.session) {
-        writeSession(payload.session);
+      if (session) {
+        writeSession(session);
       }
 
-      return payload;
+      return {
+        ...payload,
+        session,
+      };
     },
 
     async signIn({ email, password }) {

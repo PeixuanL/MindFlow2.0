@@ -90,3 +90,39 @@ test("Supabase REST client surfaces auth error_code before generic messages", as
     /email_address_invalid/,
   );
 });
+
+test("Supabase REST client normalizes top-level signup sessions", async () => {
+  const storage = createMemoryStorage();
+  const client = createSupabaseRestClient({
+    storage,
+    fetchImpl: async (url) => {
+      if (url === "/api/supabase-config") {
+        return new Response(JSON.stringify({ supabaseProxyUrl: "/api/supabase-proxy" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        access_token: "signup-token",
+        refresh_token: "refresh-token",
+        user: {
+          id: "signup-user",
+          email: "ready@mindflow-mu-tawny.vercel.app",
+        },
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+  });
+
+  const payload = await client.signUp({
+    email: "ready@mindflow-mu-tawny.vercel.app",
+    password: "password-123",
+    displayName: "ready",
+  });
+
+  assert.equal(payload.session.access_token, "signup-token");
+  assert.equal(client.getSession().access_token, "signup-token");
+});

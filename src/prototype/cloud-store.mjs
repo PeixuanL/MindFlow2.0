@@ -1,5 +1,5 @@
 import { createMindFlowStore } from "./store.mjs";
-import { createSupabaseRestClient } from "./supabase-client.mjs";
+import { createSupabaseRestClient } from "./supabase-client.mjs?v=20260803-signup-session-fix";
 
 const INTERNAL_USERNAME_DOMAIN = "mindflow-mu-tawny.vercel.app";
 
