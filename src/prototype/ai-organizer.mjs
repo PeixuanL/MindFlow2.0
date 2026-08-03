@@ -11,6 +11,10 @@ const PRESSURE_LANGUAGE_PATTERN = /必须|赶紧|立刻|拖太久|否则|应该�
 const TITLE_FILLER_PATTERN = /^(我想|我觉得|我需要|我得|我要|想要|想|然后|同时|顺便|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)+/u;
 const TITLE_TIME_PATTERN = /(今天|今晚|明天|后天|大后天|几小时后|几个小时后|[一二两三四五六七八九十0-9]+个?小时后|[一二两三四五六七八九十0-9]+天后|下周[一二三四五六日天]?|下个月|上午|中午|下午|晚上|早上|凌晨|今晚|明晚)/gu;
 const LOCAL_SEMANTIC_MAX_ITEMS = 5;
+const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
+const LOCAL_SPEECH_FILLER_PATTERN = /(?:我感觉|感觉|其实|就是|那个|这个|有点|一些|现在|今天|昨天|刚才|以及|然后|同时|顺便)/gu;
+const LOCAL_CONTEXT_ONLY_PATTERN = /(部署到Vercel之后|部署.*之后$|解决方案.*昨天.*拆解|昨天.*拆解|跑得挺好|跑得挺好的|连着.*模型)/u;
+const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|要|需要|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复)/iu;
 
 function toInputText(rawText) {
   return typeof rawText === "string" ? rawText : String(rawText ?? "");
@@ -334,8 +338,32 @@ function cleanLocalUnit(text) {
   return String(text ?? "")
     .replace(/^\s*(?:[-*•]|\d+[.、)]|P[0-2]\s*)\s*/u, "")
     .replace(TITLE_FILLER_PATTERN, "")
+    .replace(/^我感觉/u, "")
+    .replace(/歧词/gu, "歧义词")
     .replace(/^[，,。.\s、；;]+|[，,。.\s、；;]+$/gu, "")
     .trim();
+}
+
+function stripLocalSpeechFillers(text) {
+  return cleanLocalUnit(text)
+    .replace(LOCAL_SPEECH_FILLER_PATTERN, "")
+    .replace(/[，,。.\s、；;]+/gu, " ")
+    .trim();
+}
+
+function getLocalSemanticUnitRole(text) {
+  const cleaned = cleanLocalUnit(text);
+  const signalText = stripLocalSpeechFillers(cleaned);
+
+  if (!signalText) {
+    return "filler";
+  }
+
+  if (LOCAL_CONTEXT_ONLY_PATTERN.test(cleaned) && !/(问题|歧义|歧词|过滤|没有|并没有|不生效|不能|失败|异常|出错|bug)/iu.test(cleaned)) {
+    return "context";
+  }
+
+  return LOCAL_TASK_SIGNAL_PATTERN.test(cleaned) ? "task" : "context";
 }
 
 function splitLocalSemanticUnits(rawText) {
@@ -356,7 +384,17 @@ function splitLocalSemanticUnits(rawText) {
 }
 
 function shouldGroupLocalUnits(units) {
+  const combined = units.join("，");
+
   if (units.length <= 1) {
+    return true;
+  }
+
+  if (/找工作|求职|投简历|投递/u.test(combined) && /简历|作品集|面试/u.test(combined)) {
+    return true;
+  }
+
+  if (units.length <= 3 && units.every((unit) => /语义|拆解|理解|过滤|歧义|歧词/u.test(unit))) {
     return true;
   }
 
@@ -381,6 +419,14 @@ function extractKeywordTitle(text) {
 function createLocalSemanticTitle(units) {
   const combined = units.join("，");
 
+  if (/找工作|求职|投简历|投递/u.test(combined) && /简历|作品集|面试/u.test(combined)) {
+    return "求职准备";
+  }
+
+  if (/语义|拆解|理解/u.test(combined) && /歧义|歧词|过滤/u.test(combined)) {
+    return "过滤语义歧义词";
+  }
+
   if (/积分|勾选|完成|划线|删除线/u.test(combined) && /代办|todo|步骤|小步骤/u.test(combined)) {
     return "积分代办完成勾选";
   }
@@ -402,6 +448,14 @@ function createLocalSemanticTitle(units) {
 
 function createLocalSemanticFocusSteps(title, units) {
   const combined = units.join("，");
+
+  if (title === "求职准备" || (/找工作|求职|投简历|投递/u.test(combined) && /简历|作品集|面试/u.test(combined))) {
+    return ["更新简历", "整理作品集", "准备面试素材"];
+  }
+
+  if (/语义|拆解|理解/u.test(combined) && /歧义|歧词|过滤/u.test(combined)) {
+    return ["复现语义拆解输出", "标记口语和上下文词", "只保留可行动语义单元"];
+  }
 
   if (/积分|勾选|完成|划线|删除线/u.test(combined) && /代办|todo|步骤|小步骤/u.test(combined)) {
     return ["找到积分代办卡片", "给待办行加勾选框", "勾选后显示删除线"];
@@ -428,26 +482,61 @@ function createLocalSemanticFocusSteps(title, units) {
 }
 
 function createLocalSemanticNextStep(title, focusSteps) {
+  if (title === "求职准备") {
+    return "打开简历文件，先补最近一个项目。";
+  }
+
   const firstStep = focusSteps[0] ?? `定位「${title}」`;
   return `${firstStep}，先完成一处可验证改动。`;
+}
+
+function isLocalBigProject(title, units) {
+  const combined = units.join("，");
+  return title === "求职准备" || /大项目|MVP|作品集|找工作|求职|项目/u.test(combined) && /拆|准备|整理|完成|没弄|好乱/u.test(combined);
 }
 
 function createLocalSemanticResultFromUnits(rawText, units, modelBehavior) {
   const semanticUnits = units.map((text, index) => ({
     id: `u${index + 1}`,
     text,
-    role: "task",
+    role: getLocalSemanticUnitRole(text),
     topicHint: createLocalSemanticTitle([text]),
   }));
+  const taskUnits = semanticUnits.filter((unit) => unit.role === "task");
+  const unitsForItems = taskUnits.length > 0 ? taskUnits : semanticUnits.filter((unit) => unit.role !== "filler");
 
-  const itemUnits = shouldGroupLocalUnits(units)
-    ? [semanticUnits]
-    : semanticUnits.slice(0, LOCAL_SEMANTIC_MAX_ITEMS).map((unit) => [unit]);
+  if (unitsForItems.length === 0) {
+    return {
+      status: "empty",
+      message: "想到什么都可以先放在这里。",
+      inputMode: "context_only",
+      semanticUnits,
+      items: [],
+      coverageCheck: {
+        coveredUnitIds: [],
+        unmappedUnitIds: semanticUnits.map((unit) => unit.id),
+        possibleDuplicates: [],
+        needsClarification: [],
+      },
+      suggestion: null,
+      suggestions: [],
+      savedItems: [],
+      actions: DEFAULT_ACTIONS,
+      meta: {
+        modelBehavior,
+      },
+    };
+  }
+
+  const itemUnits = shouldGroupLocalUnits(unitsForItems.map((unit) => unit.text))
+    ? [unitsForItems]
+    : unitsForItems.slice(0, LOCAL_SEMANTIC_MAX_ITEMS).map((unit) => [unit]);
 
   const items = itemUnits.map((groupUnits, index) => {
     const mentions = groupUnits.map((unit) => unit.text);
     const title = createLocalSemanticTitle(mentions);
     const focusSteps = createLocalSemanticFocusSteps(title, mentions);
+    const isBigEvent = isLocalBigProject(title, mentions);
 
     return {
       id: `item_${index + 1}`,
@@ -467,7 +556,7 @@ function createLocalSemanticResultFromUnits(rawText, units, modelBehavior) {
       timeHint: null,
       dueAt: null,
       tags: [],
-      isBigEvent: false,
+      isBigEvent,
       remindDaysBefore: null,
       confidence: 0.65,
       ambiguities: [],
@@ -499,6 +588,7 @@ function createLocalSemanticResultFromUnits(rawText, units, modelBehavior) {
     ...normalized,
     meta: {
       modelBehavior,
+      promptStrategy: LOCAL_PROMPT_STRATEGY,
     },
   };
 }
@@ -680,6 +770,7 @@ function createLocalSemanticFastResult(rawText) {
     ...normalized,
     meta: {
       modelBehavior: "local_semantic_fast",
+      promptStrategy: LOCAL_PROMPT_STRATEGY,
     },
   };
 }
@@ -695,6 +786,7 @@ export function createLocalSemanticResult(rawText) {
       savedItems: [],
       meta: {
         modelBehavior: "local_semantic",
+        promptStrategy: LOCAL_PROMPT_STRATEGY,
       },
     };
   }

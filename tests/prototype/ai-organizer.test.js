@@ -119,10 +119,53 @@ test("createLocalSemanticResult splits product-edit input without generic templa
 
   assert.equal(result.status, "organized");
   assert.equal(result.meta.modelBehavior, "local_semantic");
+  assert.equal(result.meta.promptStrategy, "mindflow_system_prompt_local_rules_v1");
   assert.equal(result.items[0].title, "积分代办完成勾选");
   assert.deepEqual(result.items[0].sourceUnitIds, ["u1", "u2"]);
   assert.deepEqual(result.items[0].focusSteps, ["找到积分代办卡片", "给待办行加勾选框", "勾选后显示删除线"]);
   assert.equal(getOrganizedResultSaveBlocker(result, "积分代办要能勾选完成，勾完这一条要有划线"), null);
+});
+
+test("createLocalSemanticResult decomposes a broad project into startable focus steps", () => {
+  const result = createLocalSemanticResult("我要找工作，但是简历作品集面试都没弄，好乱。");
+
+  assert.equal(result.status, "organized");
+  assert.equal(result.meta.promptStrategy, "mindflow_system_prompt_local_rules_v1");
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].title, "求职准备");
+  assert.equal(result.items[0].isBigEvent, true);
+  assert.deepEqual(result.items[0].focusSteps, ["更新简历", "整理作品集", "准备面试素材"]);
+  assert.equal(result.items[0].nextStep, "打开简历文件，先补最近一个项目。");
+  assert.deepEqual(result.coverageCheck.coveredUnitIds, ["u1", "u2", "u3"]);
+  assert.equal(getOrganizedResultSaveBlocker(result, "我要找工作，但是简历作品集面试都没弄，好乱。"), null);
+});
+
+test("createLocalSemanticResult filters spoken filler and context from issue reports", () => {
+  const raw = [
+    "我感觉现在的语义理解还有点问题",
+    "现在连着OLYA的那个开人的模型的网千万的模型",
+    "以及昨天部署到Vercel之后",
+    "那个解决方案就是昨天的拆解",
+    "语义拆解的解决方案是跑得挺好的",
+    "今天就是并没有把一些语义歧词过滤掉",
+  ].join(",");
+
+  const result = createLocalSemanticResult(raw);
+
+  assert.equal(result.status, "organized");
+  assert.equal(result.meta.modelBehavior, "local_semantic");
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].title, "过滤语义歧义词");
+  assert.deepEqual(result.items[0].sourceUnitIds, ["u1", "u6"]);
+  assert.deepEqual(result.items[0].focusSteps, ["复现语义拆解输出", "标记口语和上下文词", "只保留可行动语义单元"]);
+  assert.deepEqual(result.semanticUnits.map((unit) => unit.role), [
+    "task",
+    "context",
+    "context",
+    "context",
+    "context",
+    "task",
+  ]);
 });
 
 test("organizeThoughtsWithAi still calls AI for complex prioritized input in local fast mode", async () => {
