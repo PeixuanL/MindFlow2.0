@@ -309,6 +309,18 @@ function localFast(rawText, fallbackOrganizer) {
   };
 }
 
+function hasGenericNextStep(result) {
+  const displayItems = Array.isArray(result.suggestions) ? result.suggestions : [];
+  const genericPattern = /^(开始|处理|整理|学习|准备|完成|推进|制定计划|规划|研究|分析|先把这件事写成|把这件事改写成)/u;
+
+  return displayItems.some((item) => genericPattern.test(String(item.nextStep ?? "").trim()));
+}
+
+function canUseLocalFastResult(rawText, fallbackOrganizer) {
+  const result = fallbackOrganizer(rawText);
+  return result.status === "organized" && !hasGenericNextStep(result);
+}
+
 function splitPlanningUnits(rawText) {
   return toInputText(rawText)
     .replace(/\s+(?=P[0-2]\s)/gu, "\n")
@@ -519,13 +531,6 @@ function hasSemanticEvidence(result) {
   );
 }
 
-function hasGenericNextStep(result) {
-  const displayItems = Array.isArray(result.suggestions) ? result.suggestions : [];
-  const genericPattern = /^(开始|处理|整理|学习|准备|完成|推进|制定计划|规划|研究|分析)/u;
-
-  return displayItems.some((item) => genericPattern.test(String(item.nextStep ?? "").trim()));
-}
-
 export function getOrganizedResultSaveBlocker(result, rawText) {
   if (!isObject(result) || result.status !== "organized") {
     return "not_organized";
@@ -684,7 +689,11 @@ export async function organizeThoughtsWithAi(rawText, options = {}) {
   const aiClient = options.aiClient ?? mockAiClient;
   const fallbackOrganizer = options.fallbackOrganizer ?? organizeThoughts;
 
-  if (options.preferLocalFast === true && shouldUseLocalFast(inputText)) {
+  if (
+    options.preferLocalFast === true &&
+    shouldUseLocalFast(inputText) &&
+    canUseLocalFastResult(inputText, fallbackOrganizer)
+  ) {
     return localFast(inputText, fallbackOrganizer);
   }
 

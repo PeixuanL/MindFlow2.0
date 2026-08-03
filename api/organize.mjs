@@ -1,6 +1,11 @@
-import { organizeThoughts } from "../src/prototype/organizer.mjs";
+import {
+  getOrganizedResultSaveBlocker,
+  organizeThoughtsWithAi,
+} from "../src/prototype/ai-organizer.mjs";
+import { buildMindFlowMessages } from "../src/prototype/ollama-client.mjs";
 
 const MAX_BODY_LENGTH = 12000;
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
@@ -28,38 +33,52 @@ async function readJsonBody(request) {
   return JSON.parse(raw || "{}");
 }
 
-function toApiResult(rawText) {
-  const localResult = organizeThoughts(rawText);
+function getOpenAiKey() {
+  return String(process.env.OPENAI_API_KEY ?? "").trim();
+}
 
-  if (localResult.status === "empty") {
-    return {
-      status: "empty",
-      message: localResult.message,
-      suggestions: [],
-      savedItems: [],
-      meta: {
-        modelBehavior: "local_rules",
-        safetyLevel: "normal",
-      },
-    };
+function createOpenAiClient({ fetchImpl = globalThis.fetch, apiKey = getOpenAiKey() } = {}) {
+  if (!fetchImpl) {
+    throw new Error("fetch_unavailable");
   }
 
-  return {
-    status: "organized",
-    message: localResult.message,
-    suggestions: localResult.suggestions.map((suggestion, index) => ({
-      ...suggestion,
-      assignTo: index === 0 ? "active" : "parking",
-      tags: [],
-      dueAt: null,
-      isBigEvent: false,
-      remindDaysBefore: null,
-    })),
-    savedItems: localResult.savedItems,
-    meta: {
-      modelBehavior: "local_rules",
-      safetyLevel: "normal",
-    },
+  if (!apiKey) {
+    throw new Error("openai_key_missing");
+  }
+
+  return async function openAiClient({ rawText }) {
+    const response = await fetchImpl(OPENAI_RESPONSES_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || "gpt-5",
+        input: buildMindFlowMessages(rawText),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("openai_request_failed");
+    }
+
+    const payload = await response.json();
+    const outputText = typeof payload.output_text === "string"
+      ? payload.output_text
+      : Array.isArray(payload.output)
+        ? payload.output
+          .flatMap((item) => Array.isArray(item.content) ? item.content : [])
+          .map((content) => content.text)
+          .filter((text) => typeof text === "string")
+          .join("")
+        : "";
+
+    if (!outputText.trim()) {
+      throw new Error("openai_empty_response");
+    }
+
+    return outputText;
   };
 }
 
@@ -70,17 +89,35 @@ export default async function handler(request, response) {
     return;
   }
 
+  let body;
   try {
-    const body = await readJsonBody(request);
-    const rawText = typeof body.rawText === "string" ? body.rawText : "";
+    body = await readJsonBody(request);
+  } catch {
+    sendJson(response, 400, { error: "invalid_request" });
+    return;
+  }
 
-    if (!rawText.trim()) {
-      sendJson(response, 400, { error: "empty_input" });
+  const rawText = typeof body.rawText === "string" ? body.rawText : "";
+
+  if (!rawText.trim()) {
+    sendJson(response, 400, { error: "empty_input" });
+    return;
+  }
+
+  try {
+    const result = await organizeThoughtsWithAi(rawText, {
+      aiClient: createOpenAiClient(),
+      preferLocalFast: true,
+    });
+    const blocker = getOrganizedResultSaveBlocker(result, rawText);
+
+    if (blocker) {
+      sendJson(response, 503, { error: "ai_unavailable", reason: blocker });
       return;
     }
 
-    sendJson(response, 200, { aiJson: JSON.stringify(toApiResult(rawText)) });
+    sendJson(response, 200, { aiJson: JSON.stringify(result) });
   } catch {
-    sendJson(response, 400, { error: "invalid_request" });
+    sendJson(response, 503, { error: "ai_unavailable" });
   }
 }

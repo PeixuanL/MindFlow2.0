@@ -73,6 +73,46 @@ test("organizeThoughtsWithAi can use local fast mode for simple input without ca
   assert.equal(result.suggestions.length, 2);
 });
 
+test("organizeThoughtsWithAi calls AI for simple input when local rules would be generic", async () => {
+  let aiCalled = false;
+
+  const result = await organizeThoughtsWithAi("积分代办要能勾选完成，勾完这一条要有划线", {
+    preferLocalFast: true,
+    aiClient: async () => {
+      aiCalled = true;
+      return JSON.stringify({
+        status: "organized",
+        message: "其他想法都还在",
+        semanticUnits: [
+          { id: "u1", text: "积分代办要能勾选完成", role: "task" },
+          { id: "u2", text: "勾完这一条要有划线", role: "task" },
+        ],
+        items: [
+          {
+            id: "item_1",
+            title: "积分代办完成勾选",
+            sourceUnitIds: ["u1", "u2"],
+            mentions: ["积分代办要能勾选完成", "勾完这一条要有划线"],
+            priority: "medium",
+            assignTo: "active",
+            reason: "它是一个明确的交互闭环。",
+            nextStep: "打开积分代办卡片，先给一条待办加完成勾选框。",
+            focusSteps: ["找到积分代办卡片", "给待办行加勾选框", "勾选后显示删除线"],
+          },
+        ],
+        recommendedNow: { itemId: "item_1" },
+        coverageCheck: { coveredUnitIds: ["u1", "u2"] },
+        meta: {},
+      });
+    },
+  });
+
+  assert.equal(aiCalled, true);
+  assert.equal(result.meta.modelBehavior, "ai");
+  assert.equal(result.suggestion.title, "积分代办完成勾选");
+  assert.deepEqual(result.suggestion.focusSteps, ["找到积分代办卡片", "给待办行加勾选框", "勾选后显示删除线"]);
+});
+
 test("organizeThoughtsWithAi still calls AI for complex prioritized input in local fast mode", async () => {
   let aiCalled = false;
 
