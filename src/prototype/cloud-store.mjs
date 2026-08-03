@@ -1,7 +1,7 @@
 import { createMindFlowStore } from "./store.mjs";
 import { createSupabaseRestClient } from "./supabase-client.mjs";
 
-const INTERNAL_USERNAME_DOMAIN = "mindflow.local";
+const INTERNAL_USERNAME_DOMAIN = "mindflow-mu-tawny.vercel.app";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -170,7 +170,11 @@ export function createMindFlowCloudStore(options = {}) {
         password,
         displayName: credentials?.displayName || toDisplayAccount(accountName, email),
       });
-      const session = payload?.session ?? await cloudClient.signIn({ email, password });
+      const session = payload?.session;
+      if (!session?.user) {
+        throw new Error("email_confirmation_required");
+      }
+
       const user = createCloudUser(session.user, {
         ...credentials,
         accountName,
@@ -239,6 +243,10 @@ export function createMindFlowCloudStore(options = {}) {
 
     updateItem(userId, itemId, patch) {
       return mutateAndSync(() => localStore.updateItem(userId, itemId, patch));
+    },
+
+    toggleItemStep(userId, itemId, stepIndex, completed) {
+      return mutateAndSync(() => localStore.toggleItemStep(userId, itemId, stepIndex, completed));
     },
 
     skipItem(userId, itemId) {

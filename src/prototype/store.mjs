@@ -160,6 +160,16 @@ function normalizeSteps(steps, nextStep) {
   return [String(nextStep || "先写下一个更小的开始。").trim()].filter(Boolean);
 }
 
+function normalizeCompletedStepIndexes(indexes, steps) {
+  const stepCount = Array.isArray(steps) ? steps.length : 0;
+  const values = Array.isArray(indexes) ? indexes : [];
+
+  return [...new Set(values)]
+    .map((index) => Number(index))
+    .filter((index) => Number.isInteger(index) && index >= 0 && index < stepCount)
+    .sort((a, b) => a - b);
+}
+
 function visibleItems(items) {
   return items.filter((item) => item.status !== "deleted");
 }
@@ -174,6 +184,10 @@ function findUser(state, userId) {
   user.batches ??= [];
   user.skips ??= {};
   user.snoozes ??= {};
+  user.items.forEach((item) => {
+    item.steps = normalizeSteps(item.steps, item.nextStep);
+    item.completedStepIndexes = normalizeCompletedStepIndexes(item.completedStepIndexes, item.steps);
+  });
   return user;
 }
 
@@ -203,6 +217,7 @@ function createItemFromSuggestion(suggestion, index, batch, now) {
     reason: String(suggestion.reason || "它比较清楚，不需要一次处理太多。").trim(),
     nextStep: String(suggestion.nextStep || "").trim(),
     steps: normalizeSteps(suggestion.focusSteps, suggestion.nextStep),
+    completedStepIndexes: normalizeCompletedStepIndexes(suggestion.completedStepIndexes, suggestion.focusSteps),
     parkingReason: String(suggestion.parkingReason || suggestion.reasonParked || "先安全放着。").trim(),
     category: suggestion.category ?? "unknown",
     energy: suggestion.energy ?? "unknown",
@@ -244,6 +259,7 @@ function createParkingItem(savedItem, batch, now) {
     reason: String(savedItem.reason || "它可以先被保存，不需要现在处理。").trim(),
     nextStep: String(savedItem.nextStep || "想看的时候再打开它。").trim(),
     steps: normalizeSteps(savedItem.focusSteps || savedItem.steps, savedItem.nextStep || "想看的时候再打开它。"),
+    completedStepIndexes: normalizeCompletedStepIndexes(savedItem.completedStepIndexes, savedItem.focusSteps || savedItem.steps),
     parkingReason: String(parkingReason || "先安全放着。").trim(),
     category: savedItem.category ?? "unknown",
     energy: savedItem.energy ?? "unknown",
@@ -499,6 +515,7 @@ export function createMindFlowStore(options = {}) {
           reason: String(values.reason ?? "手动记录的一件事。").trim(),
           nextStep: String(values.nextStep ?? "先写下一个小步骤。").trim(),
           steps: normalizeSteps(values.steps, values.nextStep),
+          completedStepIndexes: normalizeCompletedStepIndexes(values.completedStepIndexes, values.steps),
           parkingReason: String(values.parkingReason ?? "先安全放着。").trim(),
           category: "manual",
           energy: "unknown",
@@ -553,6 +570,11 @@ export function createMindFlowStore(options = {}) {
         if ("steps" in patch) {
           item.steps = normalizeSteps(patch.steps, item.nextStep);
           item.nextStep = item.steps[0] ?? item.nextStep;
+          item.completedStepIndexes = normalizeCompletedStepIndexes(item.completedStepIndexes, item.steps);
+        }
+
+        if ("completedStepIndexes" in patch) {
+          item.completedStepIndexes = normalizeCompletedStepIndexes(patch.completedStepIndexes, item.steps);
         }
 
         if ("reason" in patch) {
@@ -571,6 +593,34 @@ export function createMindFlowStore(options = {}) {
           item.tags = normalizeTags(patch.tags);
         }
 
+        item.updatedAt = now();
+        delete user.skips[item.id];
+        delete user.snoozes[item.id];
+        return clone(item);
+      });
+    },
+
+    toggleItemStep(userId, itemId, stepIndex, completed) {
+      return mutate((state) => {
+        const user = findUser(state, userId);
+        const item = user.items.find((candidate) => candidate.id === itemId);
+        if (!item || item.status === "deleted") {
+          throw new Error("item_not_found");
+        }
+
+        const index = Number(stepIndex);
+        if (!Number.isInteger(index) || index < 0 || index >= item.steps.length) {
+          throw new Error("invalid_step");
+        }
+
+        const completedIndexes = new Set(normalizeCompletedStepIndexes(item.completedStepIndexes, item.steps));
+        if (completed) {
+          completedIndexes.add(index);
+        } else {
+          completedIndexes.delete(index);
+        }
+
+        item.completedStepIndexes = normalizeCompletedStepIndexes([...completedIndexes], item.steps);
         item.updatedAt = now();
         delete user.skips[item.id];
         delete user.snoozes[item.id];

@@ -198,6 +198,39 @@ test("store updates detail fields, moves items between sections, and exposes a p
   assert.equal(store.getRecommendation(user.id).id, batch.items[0].id);
 });
 
+test("store toggles concrete step completion and restores it after reload", () => {
+  const storage = createMemoryStorage();
+  const store = createMindFlowStore({ storage, now: () => 1000 });
+  const user = store.login("Jane");
+  const batch = store.saveOrganizedResult(user.id, "raw", organizedResult);
+
+  const checked = store.toggleItemStep(user.id, batch.items[0].id, 1, true);
+  assert.deepEqual(checked.completedStepIndexes, [1]);
+
+  const unchecked = store.toggleItemStep(user.id, batch.items[0].id, 1, false);
+  assert.deepEqual(unchecked.completedStepIndexes, []);
+
+  store.toggleItemStep(user.id, batch.items[0].id, 0, true);
+  const restoredStore = createMindFlowStore({ storage, now: () => 2000 });
+  const restored = restoredStore.getStateForUser(user.id).items.find((item) => item.id === batch.items[0].id);
+
+  assert.deepEqual(restored.completedStepIndexes, [0]);
+});
+
+test("store drops completed step indexes that no longer exist after editing steps", () => {
+  const storage = createMemoryStorage();
+  const store = createMindFlowStore({ storage, now: () => 1000 });
+  const user = store.login("Jane");
+  const batch = store.saveOrganizedResult(user.id, "raw", organizedResult);
+
+  store.toggleItemStep(user.id, batch.items[0].id, 1, true);
+  const updated = store.updateItem(user.id, batch.items[0].id, {
+    steps: ["只剩一个步骤"],
+  });
+
+  assert.deepEqual(updated.completedStepIndexes, []);
+});
+
 test("store returns visible items filtered by status for item tabs", () => {
   const storage = createMemoryStorage();
   const store = createMindFlowStore({ storage, now: () => 1000 });

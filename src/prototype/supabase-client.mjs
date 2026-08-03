@@ -108,7 +108,7 @@ export function createSupabaseRestClient(options = {}) {
     const body = parseResponseBody(text);
 
     if (!response.ok) {
-      const message = body?.msg || body?.message || body?.error_description || body?.error || "cloud_request_failed";
+      const message = body?.error_code || body?.code || body?.msg || body?.message || body?.error_description || body?.error || "cloud_request_failed";
       throw createError(message, body);
     }
 

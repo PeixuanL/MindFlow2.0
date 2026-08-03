@@ -111,6 +111,25 @@ test("voice controller disables browser speech when local processing is unavaila
   assert.equal(status.textContent, "为了不上传语音，这个浏览器暂时关闭内置语音。可以用系统键盘麦克风输入。");
 });
 
+test("voice controller can allow browser speech service for immediate dictation", () => {
+  FakeRecognition.instances = [];
+  const input = { value: "" };
+  const button = { textContent: "", disabled: false, classList: createClassList() };
+  const status = { textContent: "" };
+
+  const controller = createVoiceInputController({
+    SpeechRecognition: FakeRecognition,
+    input,
+    voiceButton: button,
+    voiceStatus: status,
+    requireLocalProcessing: false,
+  });
+
+  assert.equal(controller.isSupported, true);
+  assert.equal(button.disabled, false);
+  assert.equal(FakeRecognition.instances[0].processLocally, false);
+});
+
 test("voice controller previews interim text and appends only final text", () => {
   const view = setupController();
 

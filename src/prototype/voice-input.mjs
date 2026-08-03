@@ -105,7 +105,7 @@ export function createVoiceInputController({
 
   recognition.lang = "zh-CN";
   if ("processLocally" in recognition) {
-    recognition.processLocally = true;
+    recognition.processLocally = requireLocalProcessing;
   }
   recognition.interimResults = true;
   recognition.continuous = true;

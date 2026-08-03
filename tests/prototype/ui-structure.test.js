@@ -8,6 +8,8 @@ test("prototype exposes voice input and status tabs in the HTML shell", async ()
   for (const id of ["voice-button", "voice-status", "item-tabs", "active-tab", "parking-tab", "done-tab"]) {
     assert.ok(html.includes(`id="${id}"`), `${id} missing`);
   }
+
+  assert.ok(html.includes("./app.js?v="), "module script should include a version query so mobile browsers pick up auth fixes");
 });
 
 test("item cards keep editing out of the list surface", async () => {

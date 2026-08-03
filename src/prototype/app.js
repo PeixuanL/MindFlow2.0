@@ -254,15 +254,39 @@ function setupVoiceInput() {
     voiceButton,
     voiceStatus,
     onInputChange: updateInputCount,
+    requireLocalProcessing: false,
   });
 }
 
-function renderSteps(listElement, steps) {
+function isStepCompleted(item, stepIndex) {
+  return Array.isArray(item.completedStepIndexes) && item.completedStepIndexes.includes(stepIndex);
+}
+
+function createStepCheckRow(item, stepIndex, step) {
+  const row = document.createElement("label");
+  row.className = `step-check-row ${isStepCompleted(item, stepIndex) ? "is-completed" : ""}`;
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = isStepCompleted(item, stepIndex);
+  checkbox.addEventListener("change", () => {
+    runItemAction(() => store.toggleItemStep(currentUser.id, item.id, stepIndex, checkbox.checked));
+  });
+
+  const text = document.createElement("span");
+  text.className = "step-text";
+  text.textContent = step;
+
+  row.append(checkbox, text);
+  return row;
+}
+
+function renderStepChecklist(listElement, item, steps = item.steps) {
   listElement.replaceChildren(
-    ...steps.map((step) => {
-      const item = document.createElement("li");
-      item.textContent = step;
-      return item;
+    ...steps.map((step, index) => {
+      const listItem = document.createElement("li");
+      listItem.append(createStepCheckRow(item, index, step));
+      return listItem;
     }),
   );
 }
@@ -279,7 +303,7 @@ function renderRecommendation(item) {
 function renderFocus(item) {
   focusTitle.textContent = item.title;
   focusPriority.textContent = priorityLabels[item.priority];
-  renderSteps(focusSteps, item.steps);
+  renderStepChecklist(focusSteps, item);
   show(focusSection);
 }
 
@@ -478,9 +502,9 @@ function createItemCard(item) {
 
   const steps = document.createElement("ol");
   steps.className = "preview-steps";
-  item.steps.slice(0, 3).forEach((step) => {
+  item.steps.slice(0, 3).forEach((step, index) => {
     const li = document.createElement("li");
-    li.textContent = step;
+    li.append(createStepCheckRow(item, index, step));
     steps.append(li);
   });
 
@@ -500,7 +524,7 @@ function createItemCard(item) {
   } else if (item.status === "parking") {
     controls.append(
       deleteButton,
-      createButton("恢复", "primary-action-button card-action-button card-action-primary", () => runItemAction(() => store.updateItem(currentUser.id, item.id, { status: "active" }))),
+      createButton("移到 Active", "primary-action-button card-action-button card-action-primary", () => runItemAction(() => store.updateItem(currentUser.id, item.id, { status: "active" }))),
     );
   } else {
     controls.append(
@@ -552,9 +576,14 @@ function renderItems() {
   renderList(doneList, store.getItemsByStatus(currentUser.id, "done"), "Done 里暂时没有归档。");
 }
 
-function addStepInput(value = "") {
+function addStepInput(value = "", completed = false) {
   const row = document.createElement("div");
   row.className = "step-input-row";
+  const completedInput = document.createElement("input");
+  completedInput.className = "step-complete-input";
+  completedInput.type = "checkbox";
+  completedInput.checked = completed;
+  completedInput.setAttribute("aria-label", "完成这个小步骤");
   const inputElement = document.createElement("input");
   inputElement.className = "text-input";
   inputElement.type = "text";
@@ -566,7 +595,7 @@ function addStepInput(value = "") {
       row.remove();
     }
   });
-  row.append(inputElement, removeButton);
+  row.append(completedInput, inputElement, removeButton);
   detailSteps.append(row);
 }
 
@@ -588,7 +617,7 @@ function renderDetail(itemId) {
   detailError.textContent = "";
   detailSuccess.textContent = "";
   detailSteps.replaceChildren();
-  item.steps.forEach((step) => addStepInput(step));
+  item.steps.forEach((step, index) => addStepInput(step, isStepCompleted(item, index)));
 }
 
 function renderRoute() {
@@ -653,6 +682,7 @@ async function organizeCurrentInput() {
     }
 
     store.saveOrganizedResult(currentUser.id, rawText, result);
+    await store.flush();
     input.value = "";
     updateInputCount();
     focusedItemId = null;
@@ -667,29 +697,43 @@ async function organizeCurrentInput() {
   }
 }
 
-function runItemAction(action) {
+async function runItemAction(action, { afterSuccess } = {}) {
   try {
+    setBusy(true);
     action();
+    await store.flush();
     completionVisible = false;
+    afterSuccess?.();
     renderRoute();
   } catch {
     setStatus("刚才没有保存成功，可以重试");
     manualAddError.textContent = "刚才没有保存成功，可以重试。";
+  } finally {
+    setBusy(false);
   }
 }
 
 function completeItem(itemId) {
-  runItemAction(() => store.updateItem(currentUser.id, itemId, { status: "done" }));
-  if (focusedItemId === itemId || window.location.hash === "#home") {
-    focusedItemId = null;
-    completionVisible = true;
-    navigate("#home");
-  }
+  const shouldShowCompletion = focusedItemId === itemId || window.location.hash === "#home";
+  runItemAction(
+    () => store.updateItem(currentUser.id, itemId, { status: "done" }),
+    {
+      afterSuccess: () => {
+        if (shouldShowCompletion) {
+          focusedItemId = null;
+          completionVisible = true;
+          navigate("#home");
+        }
+      },
+    },
+  );
 }
 
-function deleteItem(itemId) {
+async function deleteItem(itemId) {
   try {
+    setBusy(true);
     store.softDeleteItem(currentUser.id, itemId);
+    await store.flush();
     deletedItemId = itemId;
     undoMessage.textContent = "已删除";
     show(undoToast);
@@ -701,6 +745,8 @@ function deleteItem(itemId) {
     renderRoute();
   } catch {
     manualAddError.textContent = "刚才没有删除成功，可以重试。";
+  } finally {
+    setBusy(false);
   }
 }
 
@@ -757,8 +803,14 @@ loginForm.addEventListener("submit", async (event) => {
       return;
     }
 
-    if (error.message === "Email not confirmed") {
-      loginError.textContent = "这个账号还没有完成确认。现在可以先新注册一个用户名。";
+    if (error.message === "Email not confirmed" || error.message === "email_not_confirmed") {
+      loginError.textContent = "这个账号已创建，但 Supabase 还要求邮箱确认。需要先关闭 Confirm Email。";
+      accountInput.focus();
+      return;
+    }
+
+    if (error.message === "email_confirmation_required") {
+      loginError.textContent = "账号已到云端，但 Supabase 还开着邮箱确认。关闭 Confirm Email 后再试。";
       accountInput.focus();
       return;
     }
@@ -769,8 +821,20 @@ loginForm.addEventListener("submit", async (event) => {
       return;
     }
 
-    loginError.textContent = "先输入用户名。";
-    accountInput.focus();
+    if (error.message === "email_address_invalid") {
+      loginError.textContent = "这个用户名暂时不能注册，换一个字母或数字开头的用户名试试。";
+      accountInput.focus();
+      return;
+    }
+
+    if (error.message === "over_email_send_rate_limit") {
+      loginError.textContent = "注册请求太频繁了，先等一分钟再试。";
+      passwordInput.focus();
+      return;
+    }
+
+    loginError.textContent = "刚才没有注册成功，可以换个用户名或稍后再试。";
+    passwordInput.focus();
   } finally {
     setBusy(false);
   }
@@ -899,27 +963,33 @@ keepParkedButton.addEventListener("click", () => {
   runItemAction(() => store.snoozeParkingCandidate(currentUser.id, candidate.id));
 });
 
-manualAddForm.addEventListener("submit", (event) => {
+manualAddForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   manualAddError.textContent = "";
 
   try {
+    setBusy(true);
     store.addItem(currentUser.id, { title: manualTitleInput.value, priority: "medium" });
+    await store.flush();
     manualTitleInput.value = "";
     renderItems();
   } catch {
     manualAddError.textContent = "先写一个想法标题。";
     manualTitleInput.focus();
+  } finally {
+    setBusy(false);
   }
 });
 
-undoButton.addEventListener("click", () => {
+undoButton.addEventListener("click", async () => {
   if (!deletedItemId) {
     return;
   }
 
   try {
+    setBusy(true);
     store.undoDelete(currentUser.id, deletedItemId);
+    await store.flush();
     undoMessage.textContent = "已撤销";
     deletedItemId = null;
     window.clearTimeout(undoTimer);
@@ -927,21 +997,37 @@ undoButton.addEventListener("click", () => {
     renderRoute();
   } catch {
     undoMessage.textContent = "撤销没有成功，可以刷新后再看。";
+  } finally {
+    setBusy(false);
   }
 });
 
 addStepButton.addEventListener("click", () => addStepInput(""));
 detailBackButton.addEventListener("click", () => navigate("#items"));
 
-detailForm.addEventListener("submit", (event) => {
+detailForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   detailError.textContent = "";
   detailSuccess.textContent = "";
 
   const itemId = window.location.hash.replace("#detail/", "");
-  const steps = [...detailSteps.querySelectorAll("input")]
-    .map((stepInput) => stepInput.value.trim())
-    .filter(Boolean);
+  const stepRows = [...detailSteps.querySelectorAll(".step-input-row")];
+  const steps = [];
+  const completedStepIndexes = [];
+
+  stepRows.forEach((row) => {
+    const stepInput = row.querySelector(".text-input");
+    const completedInput = row.querySelector(".step-complete-input");
+    const value = stepInput.value.trim();
+    if (!value) {
+      return;
+    }
+
+    if (completedInput.checked) {
+      completedStepIndexes.push(steps.length);
+    }
+    steps.push(value);
+  });
 
   if (!detailTitleInput.value.trim()) {
     detailError.textContent = "标题先留一句话。";
@@ -955,6 +1041,7 @@ detailForm.addEventListener("submit", (event) => {
   }
 
   try {
+    setBusy(true);
     store.updateItem(currentUser.id, itemId, {
       title: detailTitleInput.value,
       priority: detailPriorityInput.value,
@@ -964,12 +1051,15 @@ detailForm.addEventListener("submit", (event) => {
       reason: detailReasonInput.value,
       parkingReason: detailParkingReasonInput.value,
       steps,
+      completedStepIndexes,
     });
-    detailSuccess.textContent = "已保存";
+    await store.flush();
     renderDetail(itemId);
-    detailSuccess.textContent = "已保存";
+    detailSuccess.textContent = "已保存到云端";
   } catch {
-    detailError.textContent = "刚才没有保存成功，内容还在，可以重试。";
+    detailError.textContent = "刚才没有同步到云端，内容先在这台设备上，可以再点保存。";
+  } finally {
+    setBusy(false);
   }
 });
 
