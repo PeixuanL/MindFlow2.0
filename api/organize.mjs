@@ -1,12 +1,9 @@
 import {
   createLocalSemanticResult,
   getOrganizedResultSaveBlocker,
-  organizeThoughtsWithAi,
 } from "../src/prototype/ai-organizer.mjs";
-import { buildMindFlowMessages } from "../src/prototype/ollama-client.mjs";
 
 const MAX_BODY_LENGTH = 12000;
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
@@ -32,55 +29,6 @@ async function readJsonBody(request) {
   }
 
   return JSON.parse(raw || "{}");
-}
-
-function getOpenAiKey() {
-  return String(process.env.OPENAI_API_KEY ?? "").trim();
-}
-
-function createOpenAiClient({ fetchImpl = globalThis.fetch, apiKey } = {}) {
-  if (!fetchImpl) {
-    throw new Error("fetch_unavailable");
-  }
-
-  if (!apiKey) {
-    throw new Error("openai_key_missing");
-  }
-
-  return async function openAiClient({ rawText }) {
-    const response = await fetchImpl(OPENAI_RESPONSES_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-5",
-        input: buildMindFlowMessages(rawText),
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("openai_request_failed");
-    }
-
-    const payload = await response.json();
-    const outputText = typeof payload.output_text === "string"
-      ? payload.output_text
-      : Array.isArray(payload.output)
-        ? payload.output
-          .flatMap((item) => Array.isArray(item.content) ? item.content : [])
-          .map((content) => content.text)
-          .filter((text) => typeof text === "string")
-          .join("")
-        : "";
-
-    if (!outputText.trim()) {
-      throw new Error("openai_empty_response");
-    }
-
-    return outputText;
-  };
 }
 
 function sendOrganizedResult(response, rawText, result) {
@@ -120,26 +68,5 @@ export default async function handler(request, response) {
     return;
   }
 
-  const apiKey = getOpenAiKey();
-  if (!apiKey) {
-    sendLocalSemanticResult(response, rawText);
-    return;
-  }
-
-  try {
-    const result = await organizeThoughtsWithAi(rawText, {
-      aiClient: createOpenAiClient({ apiKey }),
-      preferLocalFast: true,
-    });
-    const blocker = getOrganizedResultSaveBlocker(result, rawText);
-
-    if (blocker) {
-      sendLocalSemanticResult(response, rawText);
-      return;
-    }
-
-    sendJson(response, 200, { aiJson: JSON.stringify(result) });
-  } catch {
-    sendLocalSemanticResult(response, rawText);
-  }
+  sendLocalSemanticResult(response, rawText);
 }
