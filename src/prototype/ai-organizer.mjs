@@ -14,7 +14,7 @@ const LOCAL_SEMANTIC_MAX_ITEMS = 5;
 const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
 const LOCAL_SPEECH_FILLER_PATTERN = /(?:我感觉|感觉|其实|就是|那个|这个|有点|一些|现在|今天|昨天|刚才|以及|然后|同时|顺便)/gu;
 const LOCAL_CONTEXT_ONLY_PATTERN = /(部署到Vercel之后|部署.*之后$|解决方案.*昨天.*拆解|昨天.*拆解|跑得挺好|跑得挺好的|连着.*模型)/u;
-const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|要|需要|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复)/iu;
+const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复)/iu;
 
 function toInputText(rawText) {
   return typeof rawText === "string" ? rawText : String(rawText ?? "");
@@ -419,6 +419,14 @@ function extractKeywordTitle(text) {
 function createLocalSemanticTitle(units) {
   const combined = units.join("，");
 
+  if (/登录/u.test(combined) && /问题|解决|修|不生效|失败|异常|出错|bug/u.test(combined)) {
+    return "解决登录问题";
+  }
+
+  if (/语音识别/u.test(combined) && /优化|技术方案|方案/u.test(combined)) {
+    return "优化语音识别技术方案";
+  }
+
   if (/找工作|求职|投简历|投递/u.test(combined) && /简历|作品集|面试/u.test(combined)) {
     return "求职准备";
   }
@@ -448,6 +456,14 @@ function createLocalSemanticTitle(units) {
 
 function createLocalSemanticFocusSteps(title, units) {
   const combined = units.join("，");
+
+  if (title === "解决登录问题" || (/登录/u.test(combined) && /问题|解决|修|不生效|失败|异常|出错|bug/u.test(combined))) {
+    return ["复现登录问题", "定位失败环节", "验证登录流程"];
+  }
+
+  if (title === "优化语音识别技术方案" || (/语音识别/u.test(combined) && /优化|技术方案|方案/u.test(combined))) {
+    return ["梳理识别方案", "对比可选技术", "确定验证指标"];
+  }
 
   if (title === "求职准备" || (/找工作|求职|投简历|投递/u.test(combined) && /简历|作品集|面试/u.test(combined))) {
     return ["更新简历", "整理作品集", "准备面试素材"];

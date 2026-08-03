@@ -140,6 +140,21 @@ test("createLocalSemanticResult decomposes a broad project into startable focus 
   assert.equal(getOrganizedResultSaveBlocker(result, "我要找工作，但是简历作品集面试都没弄，好乱。"), null);
 });
 
+test("createLocalSemanticResult keeps separate tasks joined by repeated need verbs", () => {
+  const result = createLocalSemanticResult("得把登录的问题解决了，还得优化语音识别的技术方案");
+
+  assert.equal(result.status, "organized");
+  assert.equal(result.items.length, 2);
+  assert.deepEqual(result.semanticUnits.map((unit) => unit.role), ["task", "task"]);
+  assert.equal(result.items[0].title, "解决登录问题");
+  assert.deepEqual(result.items[0].sourceUnitIds, ["u1"]);
+  assert.deepEqual(result.items[0].focusSteps, ["复现登录问题", "定位失败环节", "验证登录流程"]);
+  assert.equal(result.items[1].title, "优化语音识别技术方案");
+  assert.deepEqual(result.items[1].sourceUnitIds, ["u2"]);
+  assert.deepEqual(result.items[1].focusSteps, ["梳理识别方案", "对比可选技术", "确定验证指标"]);
+  assert.equal(getOrganizedResultSaveBlocker(result, "得把登录的问题解决了，还得优化语音识别的技术方案"), null);
+});
+
 test("createLocalSemanticResult filters spoken filler and context from issue reports", () => {
   const raw = [
     "我感觉现在的语义理解还有点问题",
