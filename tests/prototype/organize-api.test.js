@@ -27,7 +27,7 @@ function createResponse() {
   };
 }
 
-test("organize API returns unavailable instead of template success when AI is not configured", async (t) => {
+test("organize API returns local semantic output when AI is not configured", async (t) => {
   const previousKey = process.env.OPENAI_API_KEY;
   const previousFetch = globalThis.fetch;
 
@@ -45,9 +45,13 @@ test("organize API returns unavailable instead of template success when AI is no
   await handler(createRequest({
     rawText: "积分代办要能勾选完成，勾完这一条要有划线",
   }), response);
+  const payload = JSON.parse(response.body);
+  const result = JSON.parse(payload.aiJson);
 
-  assert.equal(response.statusCode, 503);
-  assert.equal(JSON.parse(response.body).error, "ai_unavailable");
+  assert.equal(response.statusCode, 200);
+  assert.equal(result.meta.modelBehavior, "local_semantic");
+  assert.equal(result.items[0].title, "积分代办完成勾选");
+  assert.deepEqual(result.items[0].focusSteps, ["找到积分代办卡片", "给待办行加勾选框", "勾选后显示删除线"]);
 });
 
 test("organize API uses OpenAI semantic output when configured", async (t) => {
@@ -110,4 +114,32 @@ test("organize API uses OpenAI semantic output when configured", async (t) => {
   assert.equal(JSON.parse(requests[0].options.body).model, "test-model");
   assert.equal(result.items[0].title, "积分代办完成勾选");
   assert.deepEqual(result.items[0].focusSteps, ["找到积分代办卡片", "给待办行加勾选框", "勾选后显示删除线"]);
+});
+
+test("organize API falls back to local semantic output when OpenAI fails", async (t) => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+
+  t.after(() => {
+    process.env.OPENAI_API_KEY = previousKey;
+    globalThis.fetch = previousFetch;
+  });
+
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: "nope" }), {
+    status: 500,
+    headers: { "Content-Type": "application/json" },
+  });
+
+  const response = createResponse();
+  await handler(createRequest({
+    rawText: "active卡片的标题和具体拆分的代办没有生效",
+  }), response);
+  const payload = JSON.parse(response.body);
+  const result = JSON.parse(payload.aiJson);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(result.meta.modelBehavior, "local_semantic");
+  assert.equal(result.items[0].title, "同步 Active 卡片标题和拆分待办");
+  assert.deepEqual(result.items[0].focusSteps, ["保存卡片标题编辑", "保存拆分待办编辑", "换设备刷新验证"]);
 });

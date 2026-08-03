@@ -10,6 +10,7 @@ const DEFAULT_META = {
 const PRESSURE_LANGUAGE_PATTERN = /必须|赶紧|立刻|拖太久|否则|应该早就/;
 const TITLE_FILLER_PATTERN = /^(我想|我觉得|我需要|我得|我要|想要|想|然后|同时|顺便|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)+/u;
 const TITLE_TIME_PATTERN = /(今天|今晚|明天|后天|大后天|几小时后|几个小时后|[一二两三四五六七八九十0-9]+个?小时后|[一二两三四五六七八九十0-9]+天后|下周[一二三四五六日天]?|下个月|上午|中午|下午|晚上|早上|凌晨|今晚|明晚)/gu;
+const LOCAL_SEMANTIC_MAX_ITEMS = 5;
 
 function toInputText(rawText) {
   return typeof rawText === "string" ? rawText : String(rawText ?? "");
@@ -329,6 +330,179 @@ function splitPlanningUnits(rawText) {
     .filter(Boolean);
 }
 
+function cleanLocalUnit(text) {
+  return String(text ?? "")
+    .replace(/^\s*(?:[-*•]|\d+[.、)]|P[0-2]\s*)\s*/u, "")
+    .replace(TITLE_FILLER_PATTERN, "")
+    .replace(/^[，,。.\s、；;]+|[，,。.\s、；;]+$/gu, "")
+    .trim();
+}
+
+function splitLocalSemanticUnits(rawText) {
+  const inputText = toInputText(rawText)
+    .replace(/\r\n?/gu, "\n")
+    .replace(/\s+(?=(?:P[0-2]\b|[-*•]|\d+[.、)]))/gu, "\n")
+    .trim();
+
+  if (!inputText) {
+    return [];
+  }
+
+  return inputText
+    .split(/[\n。；;]+|[，,](?=\S)/u)
+    .map(cleanLocalUnit)
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function shouldGroupLocalUnits(units) {
+  if (units.length <= 1) {
+    return true;
+  }
+
+  if (units.length === 2) {
+    return /^(然后|再|并且|以及|同时|完成后|保存后|改完|勾完|选完|这一条|这个|这个按钮|它|这版)/u.test(units[1]);
+  }
+
+  return units.length <= 3 && units.some((unit) => /同一|这个|这一条|按钮|卡片|代办|完成|状态|标题/u.test(unit));
+}
+
+function extractKeywordTitle(text) {
+  const cleaned = cleanLocalUnit(text)
+    .replace(/(好像|确实|现在|需要|能够|可以|应该|不能|没有|并没有|真正的|进行|生效|保存|线上|完成|改动|修改|帮我|请你|解决|问题|这件事情|这条|那个事)/gu, "")
+    .replace(/[的了着吧吗呢啊]/gu, "")
+    .replace(/\s+/gu, " ")
+    .replace(/^[，,。.\s、；;]+|[，,。.\s、；;]+$/gu, "")
+    .trim();
+
+  return cleaned || cleanLocalUnit(text);
+}
+
+function createLocalSemanticTitle(units) {
+  const combined = units.join("，");
+
+  if (/积分|勾选|完成|划线|删除线/u.test(combined) && /代办|todo|步骤|小步骤/u.test(combined)) {
+    return "积分代办完成勾选";
+  }
+
+  if (/active|Active/u.test(combined) && /标题|拆分|代办|步骤|同步|生效/u.test(combined)) {
+    return "同步 Active 卡片标题和拆分待办";
+  }
+
+  if (/parking|Parking/u.test(combined) && /active|Active/u.test(combined) && /按钮|恢复|文案|名字/u.test(combined)) {
+    return "修改 Parking 移到 Active 按钮文案";
+  }
+
+  const title = extractKeywordTitle(combined)
+    .replace(/^(以及|然后|再|同时|顺便)/u, "")
+    .trim();
+
+  return title.length > 24 ? `${title.slice(0, 24)}...` : title;
+}
+
+function createLocalSemanticFocusSteps(title, units) {
+  const combined = units.join("，");
+
+  if (/积分|勾选|完成|划线|删除线/u.test(combined) && /代办|todo|步骤|小步骤/u.test(combined)) {
+    return ["找到积分代办卡片", "给待办行加勾选框", "勾选后显示删除线"];
+  }
+
+  if (/active|Active/u.test(combined) && /标题|拆分|代办|步骤|同步|生效/u.test(combined)) {
+    return ["保存卡片标题编辑", "保存拆分待办编辑", "换设备刷新验证"];
+  }
+
+  if (/parking|Parking/u.test(combined) && /active|Active/u.test(combined) && /按钮|恢复|文案|名字/u.test(combined)) {
+    return ["找到 Parking 操作按钮", "把文案改成移到 Active", "确认点击后进入 Active"];
+  }
+
+  const concreteUnits = units
+    .map((unit) => cleanLocalUnit(unit).replace(/^以及/u, ""))
+    .filter(Boolean)
+    .slice(0, 3);
+
+  if (concreteUnits.length >= 2) {
+    return concreteUnits.map((unit) => unit.length > 18 ? unit.slice(0, 18) : unit);
+  }
+
+  return [`定位「${title}」`, "改一处最小可验证内容", "保存后刷新验证"];
+}
+
+function createLocalSemanticNextStep(title, focusSteps) {
+  const firstStep = focusSteps[0] ?? `定位「${title}」`;
+  return `${firstStep}，先完成一处可验证改动。`;
+}
+
+function createLocalSemanticResultFromUnits(rawText, units, modelBehavior) {
+  const semanticUnits = units.map((text, index) => ({
+    id: `u${index + 1}`,
+    text,
+    role: "task",
+    topicHint: createLocalSemanticTitle([text]),
+  }));
+
+  const itemUnits = shouldGroupLocalUnits(units)
+    ? [semanticUnits]
+    : semanticUnits.slice(0, LOCAL_SEMANTIC_MAX_ITEMS).map((unit) => [unit]);
+
+  const items = itemUnits.map((groupUnits, index) => {
+    const mentions = groupUnits.map((unit) => unit.text);
+    const title = createLocalSemanticTitle(mentions);
+    const focusSteps = createLocalSemanticFocusSteps(title, mentions);
+
+    return {
+      id: `item_${index + 1}`,
+      title,
+      sourceUnitIds: groupUnits.map((unit) => unit.id),
+      mentions,
+      type: "task",
+      priority: index === 0 ? "medium" : "low",
+      assignTo: index === 0 ? "active" : "parking",
+      reason: `这条来自你输入里的「${mentions[0]}」。`,
+      nextStep: createLocalSemanticNextStep(title, focusSteps),
+      focusSteps,
+      deliverables: [],
+      dependsOn: [],
+      category: "task",
+      energy: "low",
+      timeHint: null,
+      dueAt: null,
+      tags: [],
+      isBigEvent: false,
+      remindDaysBefore: null,
+      confidence: 0.65,
+      ambiguities: [],
+    };
+  });
+
+  const normalized = normalizeAiResult({
+    status: "organized",
+    message: DEFAULT_MESSAGE,
+    inputMode: units.length > 1 ? "mixed_thoughts" : "single_task",
+    semanticUnits,
+    items,
+    recommendedNow: {
+      itemId: items[0]?.id,
+      title: items[0]?.title,
+      reason: items[0]?.reason,
+      nextStep: items[0]?.nextStep,
+    },
+    coverageCheck: {
+      coveredUnitIds: semanticUnits.map((unit) => unit.id),
+      unmappedUnitIds: [],
+      possibleDuplicates: [],
+      needsClarification: [],
+    },
+    meta: {},
+  });
+
+  return {
+    ...normalized,
+    meta: {
+      modelBehavior,
+    },
+  };
+}
+
 function getPlanningGroupKey(text) {
   if (/岗位|外企|投递|检索|关键词|平台|城市|远程|筛选|提醒/u.test(text)) {
     return "job_search";
@@ -508,6 +682,28 @@ function createLocalSemanticFastResult(rawText) {
       modelBehavior: "local_semantic_fast",
     },
   };
+}
+
+export function createLocalSemanticResult(rawText) {
+  const units = splitLocalSemanticUnits(rawText);
+
+  if (units.length === 0) {
+    return {
+      status: "empty",
+      message: "想到什么都可以先放在这里。",
+      suggestions: [],
+      savedItems: [],
+      meta: {
+        modelBehavior: "local_semantic",
+      },
+    };
+  }
+
+  if (shouldUseLocalSemanticFast(rawText)) {
+    return createLocalSemanticFastResult(rawText);
+  }
+
+  return createLocalSemanticResultFromUnits(rawText, units, "local_semantic");
 }
 
 function shouldUseLocalSemanticFast(rawText) {

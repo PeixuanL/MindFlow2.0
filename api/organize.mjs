@@ -1,4 +1,5 @@
 import {
+  createLocalSemanticResult,
   getOrganizedResultSaveBlocker,
   organizeThoughtsWithAi,
 } from "../src/prototype/ai-organizer.mjs";
@@ -37,7 +38,7 @@ function getOpenAiKey() {
   return String(process.env.OPENAI_API_KEY ?? "").trim();
 }
 
-function createOpenAiClient({ fetchImpl = globalThis.fetch, apiKey = getOpenAiKey() } = {}) {
+function createOpenAiClient({ fetchImpl = globalThis.fetch, apiKey } = {}) {
   if (!fetchImpl) {
     throw new Error("fetch_unavailable");
   }
@@ -82,6 +83,21 @@ function createOpenAiClient({ fetchImpl = globalThis.fetch, apiKey = getOpenAiKe
   };
 }
 
+function sendOrganizedResult(response, rawText, result) {
+  const blocker = getOrganizedResultSaveBlocker(result, rawText);
+
+  if (blocker) {
+    sendJson(response, 503, { error: "ai_unavailable", reason: blocker });
+    return;
+  }
+
+  sendJson(response, 200, { aiJson: JSON.stringify(result) });
+}
+
+function sendLocalSemanticResult(response, rawText) {
+  sendOrganizedResult(response, rawText, createLocalSemanticResult(rawText));
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -104,20 +120,26 @@ export default async function handler(request, response) {
     return;
   }
 
+  const apiKey = getOpenAiKey();
+  if (!apiKey) {
+    sendLocalSemanticResult(response, rawText);
+    return;
+  }
+
   try {
     const result = await organizeThoughtsWithAi(rawText, {
-      aiClient: createOpenAiClient(),
+      aiClient: createOpenAiClient({ apiKey }),
       preferLocalFast: true,
     });
     const blocker = getOrganizedResultSaveBlocker(result, rawText);
 
     if (blocker) {
-      sendJson(response, 503, { error: "ai_unavailable", reason: blocker });
+      sendLocalSemanticResult(response, rawText);
       return;
     }
 
     sendJson(response, 200, { aiJson: JSON.stringify(result) });
   } catch {
-    sendJson(response, 503, { error: "ai_unavailable" });
+    sendLocalSemanticResult(response, rawText);
   }
 }

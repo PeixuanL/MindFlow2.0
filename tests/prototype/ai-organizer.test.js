@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  createLocalSemanticResult,
   getOrganizedResultSaveBlocker,
   normalizeAiResult,
   organizeThoughtsWithAi,
@@ -111,6 +112,17 @@ test("organizeThoughtsWithAi calls AI for simple input when local rules would be
   assert.equal(result.meta.modelBehavior, "ai");
   assert.equal(result.suggestion.title, "积分代办完成勾选");
   assert.deepEqual(result.suggestion.focusSteps, ["找到积分代办卡片", "给待办行加勾选框", "勾选后显示删除线"]);
+});
+
+test("createLocalSemanticResult splits product-edit input without generic template steps", () => {
+  const result = createLocalSemanticResult("积分代办要能勾选完成，勾完这一条要有划线");
+
+  assert.equal(result.status, "organized");
+  assert.equal(result.meta.modelBehavior, "local_semantic");
+  assert.equal(result.items[0].title, "积分代办完成勾选");
+  assert.deepEqual(result.items[0].sourceUnitIds, ["u1", "u2"]);
+  assert.deepEqual(result.items[0].focusSteps, ["找到积分代办卡片", "给待办行加勾选框", "勾选后显示删除线"]);
+  assert.equal(getOrganizedResultSaveBlocker(result, "积分代办要能勾选完成，勾完这一条要有划线"), null);
 });
 
 test("organizeThoughtsWithAi still calls AI for complex prioritized input in local fast mode", async () => {
