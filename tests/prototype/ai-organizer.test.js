@@ -273,6 +273,61 @@ test("organizeThoughtsWithAi falls back to the local organizer when AI returns i
   assert.equal(result.meta.fallbackReason, "invalid_json");
 });
 
+test("organizeThoughtsWithAi accepts fenced JSON and common free-model field aliases", async () => {
+  const result = await organizeThoughtsWithAi(
+    "登录问题没有修好，作品集也需要整理",
+    {
+      aiClient: async () => [
+        "```json",
+        JSON.stringify({
+          status: "organized",
+          message: "其他想法都还在",
+          input_mode: "spoken",
+          semantic_units: [
+            { id: "u1", text: "登录问题没有修好", role: "task", topic_hint: "登录" },
+            { id: "u2", text: "作品集也需要整理", role: "task", topic_hint: "作品集" },
+          ],
+          tasks: [
+            {
+              id: "item_1",
+              title: "修复登录问题",
+              priority: "high",
+              assign_to: "active",
+              reason: "它会影响继续使用。",
+              next_step: "打开登录页，复现一次失败流程。",
+              focus_steps: ["打开登录页", "复现失败流程", "记录错误提示"],
+              category: "product",
+              energy: "medium",
+            },
+            {
+              id: "item_2",
+              title: "整理作品集",
+              priority: "medium",
+              assign_to: "parking",
+              reason: "它可以稍后继续推进。",
+              next_step: "列出作品集需要放进去的项目。",
+              focus_steps: ["列出项目", "补齐截图", "整理说明"],
+              category: "career",
+              energy: "medium",
+            },
+          ],
+          recommended_now: {
+            item_id: "item_1",
+            next_step: "打开登录页，复现一次失败流程。",
+          },
+          meta: {},
+        }),
+        "```",
+      ].join("\n"),
+    },
+  );
+
+  assert.equal(result.meta.modelBehavior, "ai");
+  assert.equal(result.suggestion.title, "修复登录问题");
+  assert.deepEqual(result.items.map((item) => item.sourceUnitIds), [["u1"], ["u2"]]);
+  assert.deepEqual(result.coverageCheck.coveredUnitIds, ["u1", "u2"]);
+});
+
 test("organizeThoughtsWithAi falls back when AI omits focusSteps", async () => {
   const missingFocusSteps = buildValidAiResponse({
     suggestions: [

@@ -147,10 +147,208 @@ function fallback(rawText, fallbackOrganizer, reason) {
 
 function parseAiJson(aiOutput) {
   if (typeof aiOutput === "string") {
-    return JSON.parse(aiOutput);
+    const trimmed = aiOutput.trim();
+    const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/iu);
+    const jsonText = fenced?.[1]?.trim() ?? trimmed;
+    return JSON.parse(jsonText);
   }
 
   return aiOutput;
+}
+
+function firstObject(...values) {
+  return values.find(isObject);
+}
+
+function firstArray(...values) {
+  return values.find(Array.isArray);
+}
+
+function coerceTextArray(value) {
+  return Array.isArray(value) ? value : normalizeTextArray(value);
+}
+
+function toComparableText(value) {
+  return cleanDisplayText(value)
+    .replace(/[^\p{Script=Han}A-Za-z0-9]+/gu, "")
+    .toLocaleLowerCase();
+}
+
+function getBigrams(value) {
+  const text = toComparableText(value);
+  const bigrams = new Set();
+
+  for (let index = 0; index < text.length - 1; index += 1) {
+    bigrams.add(text.slice(index, index + 2));
+  }
+
+  return bigrams;
+}
+
+function hasMeaningfulTextOverlap(left, right) {
+  const leftText = toComparableText(left);
+  const rightText = toComparableText(right);
+
+  if (leftText.length < 2 || rightText.length < 2) {
+    return false;
+  }
+
+  if (leftText.includes(rightText) || rightText.includes(leftText)) {
+    return true;
+  }
+
+  const leftBigrams = getBigrams(leftText);
+  const rightBigrams = getBigrams(rightText);
+  let shared = 0;
+
+  for (const bigram of leftBigrams) {
+    if (rightBigrams.has(bigram)) {
+      shared += 1;
+    }
+  }
+
+  return shared >= (Math.min(leftText.length, rightText.length) <= 4 ? 1 : 2);
+}
+
+function coerceSemanticUnit(unit, index) {
+  if (!isObject(unit)) {
+    return unit;
+  }
+
+  return {
+    ...unit,
+    id: unit.id ?? unit.unitId ?? unit.unit_id ?? `u${index + 1}`,
+    text: unit.text ?? unit.content ?? unit.sourceText ?? unit.source_text,
+    topicHint: unit.topicHint ?? unit.topic_hint ?? unit.topic,
+  };
+}
+
+function coerceSemanticItem(item, index, semanticUnits, itemCount) {
+  if (!isObject(item)) {
+    return item;
+  }
+
+  const sourceUnitIds = firstArray(
+    item.sourceUnitIds,
+    item.source_unit_ids,
+    item.semanticUnitIds,
+    item.semantic_unit_ids,
+    item.unitIds,
+    item.unit_ids,
+  );
+  const mentions = coerceTextArray(item.mentions ?? item.sources ?? item.sourceTexts ?? item.source_texts ?? item.source);
+  const coerced = {
+    ...item,
+    id: item.id ?? item.itemId ?? item.item_id ?? `item_${index + 1}`,
+    parentGoal: item.parentGoal ?? item.parent_goal,
+    sourceUnitIds,
+    mentions,
+    nextStep: item.nextStep ?? item.next_step,
+    focusSteps: item.focusSteps ?? item.focus_steps ?? item.steps,
+    assignTo: item.assignTo ?? item.assign_to,
+    timeHint: item.timeHint ?? item.time_hint,
+    dueAt: item.dueAt ?? item.due_at,
+    isBigEvent: item.isBigEvent ?? item.is_big_event,
+    remindDaysBefore: item.remindDaysBefore ?? item.remind_days_before,
+    dependsOn: item.dependsOn ?? item.depends_on,
+  };
+
+  if (Array.isArray(coerced.sourceUnitIds) && coerced.sourceUnitIds.length > 0) {
+    return coerced;
+  }
+
+  const evidenceTexts = [
+    coerced.title,
+    coerced.source,
+    coerced.nextStep,
+    ...mentions,
+  ].filter(hasText);
+  const nonFillerUnits = semanticUnits.filter((unit) => unit.role !== "filler");
+  const matchedUnitIds = nonFillerUnits
+    .filter((unit) => evidenceTexts.some((text) => hasMeaningfulTextOverlap(text, unit.text)))
+    .map((unit) => unit.id);
+
+  if (matchedUnitIds.length > 0) {
+    return {
+      ...coerced,
+      sourceUnitIds: matchedUnitIds,
+    };
+  }
+
+  if (itemCount === 1 && nonFillerUnits.length > 0) {
+    return {
+      ...coerced,
+      sourceUnitIds: nonFillerUnits.map((unit) => unit.id),
+    };
+  }
+
+  if (nonFillerUnits[index]) {
+    return {
+      ...coerced,
+      sourceUnitIds: [nonFillerUnits[index].id],
+    };
+  }
+
+  return coerced;
+}
+
+function coerceCoverageCheck(coverageCheck, items, semanticUnits) {
+  const existing = firstObject(coverageCheck);
+  const coveredUnitIds = normalizeTextArray(
+    existing?.coveredUnitIds ?? existing?.covered_unit_ids ?? existing?.covered,
+  );
+  const inferredCoveredUnitIds = items.flatMap((item) => normalizeTextArray(item.sourceUnitIds));
+  const covered = coveredUnitIds.length > 0
+    ? coveredUnitIds
+    : [...new Set(inferredCoveredUnitIds)];
+  const nonFillerIds = semanticUnits.filter((unit) => unit.role !== "filler").map((unit) => unit.id);
+
+  return {
+    ...existing,
+    coveredUnitIds: covered,
+    unmappedUnitIds: normalizeTextArray(
+      existing?.unmappedUnitIds ??
+        existing?.unmapped_unit_ids ??
+        nonFillerIds.filter((id) => !covered.includes(id)),
+    ),
+    possibleDuplicates: normalizeTextArray(existing?.possibleDuplicates ?? existing?.possible_duplicates),
+    needsClarification: normalizeTextArray(existing?.needsClarification ?? existing?.needs_clarification),
+  };
+}
+
+function coerceRecommendedNow(recommendedNow) {
+  if (!isObject(recommendedNow)) {
+    return recommendedNow;
+  }
+
+  return {
+    ...recommendedNow,
+    itemId: recommendedNow.itemId ?? recommendedNow.item_id ?? recommendedNow.id,
+    nextStep: recommendedNow.nextStep ?? recommendedNow.next_step,
+  };
+}
+
+function coerceAiResultShape(result) {
+  const root = firstObject(result?.result, result?.output, result?.data, result) ?? result;
+  if (!isObject(root)) {
+    return root;
+  }
+
+  const semanticUnits = firstArray(root.semanticUnits, root.semantic_units, root.units)
+    ?.map(coerceSemanticUnit) ?? [];
+  const itemValues = firstArray(root.items, root.tasks, root.taskItems, root.task_items, root.actionItems, root.action_items);
+  const items = Array.isArray(itemValues)
+    ? itemValues.map((item, index) => coerceSemanticItem(item, index, semanticUnits, itemValues.length))
+    : itemValues;
+
+  return {
+    ...root,
+    inputMode: root.inputMode ?? root.input_mode,
+    semanticUnits,
+    items,
+    recommendedNow: coerceRecommendedNow(root.recommendedNow ?? root.recommended_now ?? root.recommendation),
+    coverageCheck: coerceCoverageCheck(root.coverageCheck ?? root.coverage_check ?? root.coverage, items ?? [], semanticUnits),
+  };
 }
 
 function normalizeAiStatus(status) {
@@ -1027,7 +1225,7 @@ export async function organizeThoughtsWithAi(rawText, options = {}) {
   }
 
   try {
-    parsedResult = parseAiJson(aiOutput);
+    parsedResult = coerceAiResultShape(parseAiJson(aiOutput));
   } catch {
     return fallback(inputText, fallbackOrganizer, "invalid_json");
   }

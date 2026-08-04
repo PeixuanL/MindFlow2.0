@@ -88,7 +88,7 @@ test("organize API reports AI diagnostics without exposing secrets", async (t) =
   assert.equal(response.statusCode, 200);
   assert.equal(payload.openRouterConfigured, true);
   assert.equal(payload.configuredModel, "inclusionai/ling-3.0-flash:free");
-  assert.equal(payload.model, "google/gemma-4-31b-it:free");
+  assert.equal(payload.model, "openai/gpt-oss-20b:free");
   assert.equal(payload.localFallbackAllowed, false);
   assert.equal(JSON.stringify(payload).includes("test-openrouter-key"), false);
 });
@@ -210,7 +210,7 @@ test("organize API calls OpenRouter with privacy and zero-cost guardrails when c
   assert.equal(response.statusCode, 200);
   assert.equal(requests[0].url, "https://openrouter.ai/api/v1/chat/completions");
   assert.equal(requests[0].options.headers.Authorization, "Bearer test-openrouter-key");
-  assert.equal(body.model, "google/gemma-4-31b-it:free");
+  assert.equal(body.model, "openai/gpt-oss-20b:free");
   assert.equal(body.provider.zdr, true);
   assert.deepEqual(body.max_price, { prompt: 0, completion: 0 });
   assert.equal(body.messages[1].content, "牙医还没约");
@@ -268,6 +268,44 @@ test("organize API blocks OpenRouter responses that ignore semantic evidence", a
   assert.equal(response.statusCode, 503);
   assert.equal(payload.error, "ai_unavailable");
   assert.equal(payload.reason, "generic_next_step");
+});
+
+test("organize API reports safe AI validation failure reasons", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousKey = process.env.OPENROUTER_API_KEY;
+  const previousLimit = process.env.MINDFLOW_DAILY_AI_LIMIT;
+
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    restoreEnvValue("OPENROUTER_API_KEY", previousKey);
+    restoreEnvValue("MINDFLOW_DAILY_AI_LIMIT", previousLimit);
+  });
+
+  process.env.OPENROUTER_API_KEY = "test-openrouter-key";
+  process.env.MINDFLOW_DAILY_AI_LIMIT = "50";
+  globalThis.fetch = async () => ({
+    ok: true,
+    async json() {
+      return {
+        choices: [
+          {
+            message: {
+              content: "{not-json",
+            },
+          },
+        ],
+      };
+    },
+  });
+
+  const response = createResponse();
+  await handler(createRequest({ rawText: "登录问题没有修好" }), response);
+  const payload = JSON.parse(response.body);
+
+  assert.equal(response.statusCode, 503);
+  assert.equal(payload.error, "ai_unavailable");
+  assert.equal(payload.reason, "invalid_json");
+  assert.equal(JSON.stringify(payload).includes("登录问题没有修好"), false);
 });
 
 test("organize API rejects overly long input before external AI", async (t) => {

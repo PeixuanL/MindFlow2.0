@@ -40,7 +40,10 @@ function sendOrganizedResult(response, rawText, result) {
   const blocker = getOrganizedResultSaveBlocker(result, rawText);
 
   if (blocker) {
-    sendJson(response, 503, { error: "ai_unavailable", reason: blocker });
+    const safeReason = blocker === "fallback_result" && result?.meta?.fallbackReason
+      ? result.meta.fallbackReason
+      : blocker;
+    sendJson(response, 503, { error: "ai_unavailable", reason: safeReason });
     return;
   }
 
