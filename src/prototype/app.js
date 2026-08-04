@@ -114,6 +114,12 @@ let deletedItemId = null;
 let activeItemTab = "active";
 let voiceController = null;
 let authMode = "login";
+const ITEM_PAGE_SIZE = 100;
+const itemVisibleLimits = {
+  active: ITEM_PAGE_SIZE,
+  parking: ITEM_PAGE_SIZE,
+  done: ITEM_PAGE_SIZE,
+};
 
 async function serverAiClient({ rawText }) {
   const response = await fetch("/api/organize", {
@@ -427,7 +433,7 @@ function createHomeThoughtRow(item, { completed = false } = {}) {
   return button;
 }
 
-function renderHomeSidebar() {
+function renderHomeSidebar(itemsOverride = null) {
   if (!currentUser) {
     homeThoughtsList.replaceChildren();
     homeCompletedList.replaceChildren();
@@ -437,7 +443,7 @@ function renderHomeSidebar() {
     return;
   }
 
-  const items = getUserState().items;
+  const items = itemsOverride ?? getUserState().items;
   const visible = [...items].sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
   const openItems = visible.filter((item) => item.status !== "done").slice(0, 5);
   const completedItems = visible
@@ -586,6 +592,28 @@ function renderList(container, items, emptyText) {
   container.replaceChildren(...(items.length ? items.map(createItemCard) : [createEmptyState(emptyText)]));
 }
 
+function appendLoadMoreControl(container, status, remainingCount) {
+  const nextCount = Math.min(ITEM_PAGE_SIZE, remainingCount);
+  const loadMoreButton = createButton(`再显示 ${nextCount} 条`, "secondary-button list-load-more", () => {
+    itemVisibleLimits[status] += ITEM_PAGE_SIZE;
+    renderItems();
+  });
+
+  container.append(loadMoreButton);
+}
+
+const listContainersByStatus = {
+  active: activeList,
+  parking: parkingList,
+  done: doneList,
+};
+
+const emptyTextByStatus = {
+  active: "Active 里暂时没有想法。",
+  parking: "Parking 里暂时是空的。",
+  done: "Done 里暂时没有归档。",
+};
+
 function renderTabs() {
   itemTabs.forEach((tab) => {
     const selected = tab.dataset.tab === activeItemTab;
@@ -601,11 +629,23 @@ function renderTabs() {
 function renderItems() {
   showView("items");
   manualAddError.textContent = "";
-  renderHomeSidebar();
+  const items = getUserState().items;
+  renderHomeSidebar(items);
   renderTabs();
-  renderList(activeList, store.getItemsByStatus(currentUser.id, "active"), "Active 里暂时没有想法。");
-  renderList(parkingList, store.getItemsByStatus(currentUser.id, "parking"), "Parking 里暂时是空的。");
-  renderList(doneList, store.getItemsByStatus(currentUser.id, "done"), "Done 里暂时没有归档。");
+  Object.entries(listContainersByStatus).forEach(([status, container]) => {
+    if (status !== activeItemTab) {
+      container.replaceChildren();
+      return;
+    }
+
+    const statusItems = items.filter((item) => item.status === status);
+    const visibleItems = statusItems.slice(0, itemVisibleLimits[status]);
+
+    renderList(container, visibleItems, emptyTextByStatus[status]);
+    if (visibleItems.length < statusItems.length) {
+      appendLoadMoreControl(container, status, statusItems.length - visibleItems.length);
+    }
+  });
 }
 
 function addStepInput(value = "", completed = false) {

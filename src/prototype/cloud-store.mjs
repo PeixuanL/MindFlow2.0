@@ -128,15 +128,14 @@ export function createMindFlowCloudStore(options = {}) {
   }
 
   function scheduleSync() {
-    const currentUser = localStore.getSession();
-    if (!currentUser) {
+    const state = localStore.exportState();
+    if (!state.sessionUserId) {
       return syncPromise;
     }
 
-    const state = localStore.exportState();
     syncPromise = syncPromise
       .catch(() => null)
-      .then(() => cloudClient.saveUserState(currentUser.id, state));
+      .then(() => cloudClient.saveUserState(state.sessionUserId, state));
     return syncPromise;
   }
 
