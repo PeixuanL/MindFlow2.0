@@ -91,7 +91,7 @@ test("organize API reports AI diagnostics without exposing secrets", async (t) =
   assert.equal(response.statusCode, 200);
   assert.equal(payload.openRouterConfigured, true);
   assert.equal(payload.configuredModel, "inclusionai/ling-3.0-flash:free");
-  assert.equal(payload.model, "nvidia/nemotron-nano-9b-v2:free");
+  assert.equal(payload.model, "openai/gpt-oss-20b:free");
   assert.equal(payload.requireZdr, true);
   assert.equal(payload.localFallbackAllowed, false);
   assert.equal(JSON.stringify(payload).includes("test-openrouter-key"), false);
@@ -217,7 +217,7 @@ test("organize API calls OpenRouter with zero-cost guardrails when configured", 
   assert.equal(response.statusCode, 200);
   assert.equal(requests[0].url, "https://openrouter.ai/api/v1/chat/completions");
   assert.equal(requests[0].options.headers.Authorization, "Bearer test-openrouter-key");
-  assert.equal(body.model, "nvidia/nemotron-nano-9b-v2:free");
+  assert.equal(body.model, "openai/gpt-oss-20b:free");
   assert.equal(body.max_tokens, 1400);
   assert.equal(body.provider, undefined);
   assert.deepEqual(body.max_price, { prompt: 0, completion: 0 });

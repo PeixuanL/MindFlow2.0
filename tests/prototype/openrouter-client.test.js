@@ -8,12 +8,12 @@ import {
 
 test("buildOpenRouterRequestBody uses JSON and zero-cost routing guardrails by default", () => {
   const body = buildOpenRouterRequestBody("明天要交材料，牙医还没约", {
-    model: "nvidia/nemotron-nano-9b-v2:free",
+    model: "openai/gpt-oss-20b:free",
     currentDate: "2026-08-04",
   });
   const combined = body.messages.map((message) => message.content).join("\n");
 
-  assert.equal(body.model, "nvidia/nemotron-nano-9b-v2:free");
+  assert.equal(body.model, "openai/gpt-oss-20b:free");
   assert.equal(body.temperature, 0);
   assert.equal(body.max_tokens, 1400);
   assert.deepEqual(body.response_format, { type: "json_object" });
@@ -46,7 +46,7 @@ test("createOpenRouterClient posts through the OpenAI-compatible chat completion
   const requests = [];
   const client = createOpenRouterClient({
     apiKey: "test-key",
-    model: "nvidia/nemotron-nano-9b-v2:free",
+    model: "openai/gpt-oss-20b:free",
     fetchImpl: async (url, options) => {
       requests.push({ url, options });
       return {
@@ -106,8 +106,8 @@ test("createOpenRouterClient passes the optional ZDR routing requirement", async
 });
 
 test("resolveOpenRouterModel replaces known free models that cannot honor JSON mode", () => {
-  assert.equal(resolveOpenRouterModel("inclusionai/ling-3.0-flash:free"), "nvidia/nemotron-nano-9b-v2:free");
-  assert.equal(resolveOpenRouterModel("google/gemma-4-31b-it:free"), "nvidia/nemotron-nano-9b-v2:free");
+  assert.equal(resolveOpenRouterModel("inclusionai/ling-3.0-flash:free"), "openai/gpt-oss-20b:free");
+  assert.equal(resolveOpenRouterModel("google/gemma-4-31b-it:free"), "openai/gpt-oss-20b:free");
   assert.equal(resolveOpenRouterModel("openai/gpt-oss-20b:free"), "openai/gpt-oss-20b:free");
   assert.equal(resolveOpenRouterModel("nvidia/nemotron-nano-9b-v2:free"), "nvidia/nemotron-nano-9b-v2:free");
 });
