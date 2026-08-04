@@ -3,7 +3,7 @@ import {
   getOrganizedResultSaveBlocker,
   organizeThoughtsWithAi,
 } from "../src/prototype/ai-organizer.mjs";
-import { createOpenRouterClient } from "../src/prototype/openrouter-client.mjs";
+import { createOpenRouterClient, resolveOpenRouterModel } from "../src/prototype/openrouter-client.mjs";
 
 const MAX_BODY_LENGTH = 12000;
 const MAX_RAW_TEXT_LENGTH = 500;
@@ -81,9 +81,12 @@ function canUseLocalOrganizeFallback() {
 }
 
 function getAiDiagnostics() {
+  const configuredModel = process.env.OPENROUTER_MODEL || "";
+
   return {
     openRouterConfigured: Boolean(process.env.OPENROUTER_API_KEY),
-    model: process.env.OPENROUTER_MODEL || "inclusionai/ling-3.0-flash:free",
+    configuredModel: configuredModel || null,
+    model: resolveOpenRouterModel(configuredModel),
     localFallbackAllowed: canUseLocalOrganizeFallback(),
   };
 }

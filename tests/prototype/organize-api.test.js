@@ -87,7 +87,8 @@ test("organize API reports AI diagnostics without exposing secrets", async (t) =
 
   assert.equal(response.statusCode, 200);
   assert.equal(payload.openRouterConfigured, true);
-  assert.equal(payload.model, "inclusionai/ling-3.0-flash:free");
+  assert.equal(payload.configuredModel, "inclusionai/ling-3.0-flash:free");
+  assert.equal(payload.model, "google/gemma-4-31b-it:free");
   assert.equal(payload.localFallbackAllowed, false);
   assert.equal(JSON.stringify(payload).includes("test-openrouter-key"), false);
 });
@@ -209,7 +210,7 @@ test("organize API calls OpenRouter with privacy and zero-cost guardrails when c
   assert.equal(response.statusCode, 200);
   assert.equal(requests[0].url, "https://openrouter.ai/api/v1/chat/completions");
   assert.equal(requests[0].options.headers.Authorization, "Bearer test-openrouter-key");
-  assert.equal(body.model, "inclusionai/ling-3.0-flash:free");
+  assert.equal(body.model, "google/gemma-4-31b-it:free");
   assert.equal(body.provider.zdr, true);
   assert.deepEqual(body.max_price, { prompt: 0, completion: 0 });
   assert.equal(body.messages[1].content, "牙医还没约");

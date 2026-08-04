@@ -3,16 +3,17 @@ import assert from "node:assert/strict";
 import {
   buildOpenRouterRequestBody,
   createOpenRouterClient,
+  resolveOpenRouterModel,
 } from "../../src/prototype/openrouter-client.mjs";
 
 test("buildOpenRouterRequestBody uses JSON, ZDR, and zero-cost routing guardrails", () => {
   const body = buildOpenRouterRequestBody("明天要交材料，牙医还没约", {
-    model: "inclusionai/ling-3.0-flash:free",
+    model: "google/gemma-4-31b-it:free",
     currentDate: "2026-08-04",
   });
   const combined = body.messages.map((message) => message.content).join("\n");
 
-  assert.equal(body.model, "inclusionai/ling-3.0-flash:free");
+  assert.equal(body.model, "google/gemma-4-31b-it:free");
   assert.equal(body.temperature, 0);
   assert.deepEqual(body.response_format, { type: "json_object" });
   assert.equal(body.provider.zdr, true);
@@ -26,7 +27,7 @@ test("createOpenRouterClient posts through the OpenAI-compatible chat completion
   const requests = [];
   const client = createOpenRouterClient({
     apiKey: "test-key",
-    model: "inclusionai/ling-3.0-flash:free",
+    model: "google/gemma-4-31b-it:free",
     fetchImpl: async (url, options) => {
       requests.push({ url, options });
       return {
@@ -53,6 +54,11 @@ test("createOpenRouterClient posts through the OpenAI-compatible chat completion
   assert.equal(requests[0].options.headers.Authorization, "Bearer test-key");
   assert.equal(body.messages[1].content, "牙医还没约");
   assert.equal(result.includes("\"status\":\"organized\""), true);
+});
+
+test("resolveOpenRouterModel replaces known free models that cannot honor JSON mode", () => {
+  assert.equal(resolveOpenRouterModel("inclusionai/ling-3.0-flash:free"), "google/gemma-4-31b-it:free");
+  assert.equal(resolveOpenRouterModel("openai/gpt-oss-20b:free"), "openai/gpt-oss-20b:free");
 });
 
 test("createOpenRouterClient requires an API key", () => {

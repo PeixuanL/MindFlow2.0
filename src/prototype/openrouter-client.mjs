@@ -1,8 +1,11 @@
 import { buildMindFlowMessages } from "./ollama-client.mjs";
 
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_MODEL = "inclusionai/ling-3.0-flash:free";
+const DEFAULT_MODEL = "google/gemma-4-31b-it:free";
 const DEFAULT_TIMEOUT_MS = 90000;
+const JSON_INCOMPATIBLE_FREE_MODELS = new Set([
+  "inclusionai/ling-3.0-flash:free",
+]);
 
 function trimTrailingSlash(value) {
   return String(value ?? "").replace(/\/+$/u, "");
@@ -30,7 +33,7 @@ function getMessageContent(payload) {
 }
 
 export function buildOpenRouterRequestBody(rawText, options = {}) {
-  const model = options.model ?? DEFAULT_MODEL;
+  const model = resolveOpenRouterModel(options.model);
 
   return {
     model,
@@ -51,11 +54,16 @@ export function buildOpenRouterRequestBody(rawText, options = {}) {
   };
 }
 
+export function resolveOpenRouterModel(model) {
+  const requestedModel = String(model ?? "").trim() || DEFAULT_MODEL;
+  return JSON_INCOMPATIBLE_FREE_MODELS.has(requestedModel) ? DEFAULT_MODEL : requestedModel;
+}
+
 export function createOpenRouterClient(options = {}) {
   const apiKey = options.apiKey ?? process.env.OPENROUTER_API_KEY;
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const baseUrl = trimTrailingSlash(options.baseUrl ?? process.env.OPENROUTER_BASE_URL ?? DEFAULT_BASE_URL);
-  const model = options.model ?? process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL;
+  const model = resolveOpenRouterModel(options.model ?? process.env.OPENROUTER_MODEL);
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   if (!apiKey) {
