@@ -2,6 +2,15 @@ const DEFAULT_ENDPOINT = "http://127.0.0.1:11434";
 const DEFAULT_MODEL = "qwen2.5:3b";
 const DEFAULT_TIMEOUT_MS = 90000;
 
+function getShanghaiDate(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 function assertLocalEndpoint(endpoint) {
   const url = new URL(endpoint);
   const isLocal = url.hostname === "127.0.0.1" || url.hostname === "localhost";
@@ -13,7 +22,9 @@ function assertLocalEndpoint(endpoint) {
   return url.origin;
 }
 
-export function buildMindFlowMessages(rawText) {
+export function buildMindFlowMessages(rawText, options = {}) {
+  const currentDate = options.currentDate ?? getShanghaiDate();
+
   return [
     {
       role: "system",
@@ -27,7 +38,7 @@ export function buildMindFlowMessages(rawText) {
         "如果输入已经包含 P0/P1/P2，请把它们视为用户给出的 source priority，不要用时间紧急度覆盖它。",
         "去除口语填充词、连接词和非任务描述，例如“我想”“我觉得”“然后”“同时”“就是”“那个”“这个”“其实”“感觉”“有点”“啊”“嗯”“呃”。不要把这些词当成任务内容。",
         "title 需要是精炼任务名；如果识别到 dueAt/timeHint，像“今晚、几个小时后、两天后”这种时间描述不要放在 title 里，放到 dueAt/timeHint 字段。",
-        "请以 Asia/Shanghai 当前日期 2026-08-02 解析相对时间：今晚、明天、后天、两天后、几个小时后、下午 3 点等都要尽量转成具体 dueAt。dueAt 使用 ISO 8601 字符串，无法确定时为 null。",
+        `请以 Asia/Shanghai 当前日期 ${currentDate} 解析相对时间：今晚、明天、后天、两天后、几个小时后、下午 3 点等都要尽量转成具体 dueAt。dueAt 使用 ISO 8601 字符串，无法确定时为 null。`,
         "推荐标准按这个顺序判断：可开始性 > 清晰度 > 时间线索 > 重要性。",
         "assignTo 规则：高优先级、今天/今晚/几个小时后需要处理的任务放 active；中低优先级、两天后或更远、有空/以后/不急的任务放 parking。",
         "如果输入里有大项目，请先拆成真实可执行的 3 个左右子步骤，避免推荐“完成整个项目”，并设置 isBigEvent。",

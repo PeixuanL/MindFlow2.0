@@ -22,3 +22,15 @@ The project has been initialized. The technical stack and first implementation s
 3. Build the smallest useful result.
 4. Verify.
 5. Write back confirmed decisions when useful.
+
+## Private AI Organizing
+
+The deployed `/api/organize` route can call OpenRouter when `OPENROUTER_API_KEY` is configured. Without that key, it stays local and does not send input to an external model.
+
+Privacy and cost guardrails:
+
+- API keys stay in server-side environment variables only.
+- Requests ask OpenRouter to use zero data retention routing with `provider.zdr: true`.
+- Requests set `max_price` to zero so the prototype only uses free routes by default.
+- The backend rejects input over 500 characters and rate-limits OpenRouter calls with `MINDFLOW_DAILY_AI_LIMIT`.
+- Keep this mode for portfolio demos and small friend testing; avoid highly sensitive medical, legal, financial, or identity information.
