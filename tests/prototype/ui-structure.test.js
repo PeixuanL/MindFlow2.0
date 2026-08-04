@@ -38,6 +38,8 @@ test("desktop home shell exposes the refined interaction landmarks", async () =>
   assert.equal(html.includes("事项"), false, "interface copy should avoid 事项 wording");
   assert.equal(app.includes("事项"), false, "runtime copy should avoid 事项 wording");
   assert.ok(app.includes("整理中…"), "organizing state should use an ellipsis");
+  assert.ok(app.includes("busyScopes"), "runtime should track busy state by concrete action");
+  assert.equal(app.includes("setBusy(true)"), false, "runtime should not use one global busy state for every home action");
   assert.equal(app.includes("详情 ›"), false, "home sidebar rows should not repeat detail labels");
 });
 

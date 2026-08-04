@@ -83,6 +83,23 @@ test("store saves organized items per user and restores them after reload", () =
   assert.equal(restored.items[2].source, "保险那个事也要看");
 });
 
+test("store does not duplicate visible items when a save is retried", () => {
+  const storage = createMemoryStorage();
+  const store = createMindFlowStore({ storage, now: () => 1000 });
+  const user = store.login(" Jane ");
+
+  const firstBatch = store.saveOrganizedResult(user.id, "牙医还没约，周末整理房间", organizedResult);
+
+  assert.throws(
+    () => store.saveOrganizedResult(user.id, "牙医还没约，周末整理房间", organizedResult),
+    /nothing_to_save/,
+  );
+  assert.deepEqual(
+    store.getStateForUser(user.id).items.map((item) => item.source),
+    firstBatch.items.map((item) => item.source),
+  );
+});
+
 test("store isolates registered accounts by account name instead of display name", () => {
   const storage = createMemoryStorage();
   const store = createMindFlowStore({ storage, now: () => 1000 });

@@ -105,7 +105,7 @@ const detailBackButton = document.querySelector("#detail-back-button");
 const detailSaveButton = document.querySelector("#detail-save-button");
 
 let currentUser = store.getSession();
-let busy = false;
+const busyScopes = new Set();
 let focusedItemId = null;
 let completionVisible = false;
 let toastTimer = null;
@@ -205,19 +205,28 @@ function findVisibleItem(itemId) {
   return getUserState().items.find((item) => item.id === itemId) ?? null;
 }
 
-function setBusy(nextBusy) {
-  busy = nextBusy;
-  organizeButton.disabled = busy;
-  organizeButton.classList.toggle("is-busy", busy);
-  lookButton.disabled = busy;
-  skipButton.disabled = busy;
-  focusDoneButton.disabled = busy;
-  restoreCandidateButton.disabled = busy;
-  keepParkedButton.disabled = busy;
-  loginButton.disabled = busy;
-  manualAddButton.disabled = busy;
-  detailSaveButton.disabled = busy;
-  organizeButton.textContent = busy ? "整理中…" : "帮我捋一捋";
+function isBusy(scope) {
+  return busyScopes.has(scope);
+}
+
+function setBusy(scope, nextBusy) {
+  if (nextBusy) {
+    busyScopes.add(scope);
+  } else {
+    busyScopes.delete(scope);
+  }
+
+  organizeButton.disabled = isBusy("organize");
+  organizeButton.classList.toggle("is-busy", isBusy("organize"));
+  lookButton.disabled = isBusy("look");
+  skipButton.disabled = isBusy("skip");
+  focusDoneButton.disabled = isBusy("focusDone");
+  restoreCandidateButton.disabled = isBusy("restoreCandidate");
+  keepParkedButton.disabled = isBusy("keepParked");
+  loginButton.disabled = isBusy("auth");
+  manualAddButton.disabled = isBusy("manualAdd");
+  detailSaveButton.disabled = isBusy("detailSave");
+  organizeButton.textContent = isBusy("organize") ? "整理中…" : "帮我捋一捋";
 }
 
 function showToast(message, actionText, action) {
@@ -229,6 +238,29 @@ function showToast(message, actionText, action) {
   toastTimer = window.setTimeout(() => {
     hide(toast);
   }, 5000);
+}
+
+function retryCloudSync() {
+  setStatus("正在重新同步云端");
+  store.syncNow()
+    .then(() => showToast("云端同步好了", "去看看", () => navigate("#items")))
+    .catch(() => {
+      setStatus("已保存在这台设备上，云端暂时没连上");
+      showToast("云端还是没有连上", "再试一次", retryCloudSync);
+    });
+}
+
+function reportCloudSync(syncPromise, { successMessage = "", failureMessage = "已保存在这台设备上，云端暂时没连上" } = {}) {
+  syncPromise
+    .then(() => {
+      if (successMessage) {
+        showToast(successMessage, "去看看", () => navigate("#items"));
+      }
+    })
+    .catch(() => {
+      setStatus(failureMessage);
+      showToast(failureMessage, "重试同步", retryCloudSync);
+    });
 }
 
 function updateInputCount() {
@@ -640,7 +672,7 @@ function renderRoute() {
 }
 
 async function organizeCurrentInput() {
-  if (busy) {
+  if (isBusy("organize")) {
     return;
   }
 
@@ -660,7 +692,7 @@ async function organizeCurrentInput() {
   }
 
   try {
-    setBusy(true);
+    setBusy("organize", true);
     setStatus("正在帮你分开这些想法");
     const result = await organizeThoughtsWithAi(rawText, {
       aiClient: serverAiClient,
@@ -682,34 +714,47 @@ async function organizeCurrentInput() {
     }
 
     store.saveOrganizedResult(currentUser.id, rawText, result);
-    await store.flush();
     input.value = "";
     updateInputCount();
     focusedItemId = null;
     completionVisible = false;
     renderHome();
-    showToast("已经帮你保存好了", "去看看", () => navigate("#items"));
-  } catch {
+    showToast("已经保存在这台设备上", "去看看", () => navigate("#items"));
+    reportCloudSync(store.flush(), {
+      successMessage: "云端同步好了",
+    });
+  } catch (error) {
+    if (error.message === "nothing_to_save") {
+      captureError.textContent = "这些想法已经保存过了，没有重复新增。";
+      setStatus("已经在全部想法里");
+      input.focus();
+      return;
+    }
+
     captureError.textContent = "刚才没有保存成功，可以再试一次。";
     setStatus("输入还在，可以重试");
   } finally {
-    setBusy(false);
+    setBusy("organize", false);
   }
 }
 
-async function runItemAction(action, { afterSuccess } = {}) {
+function runItemAction(action, { afterSuccess, scope = "itemAction" } = {}) {
+  if (isBusy(scope)) {
+    return;
+  }
+
   try {
-    setBusy(true);
+    setBusy(scope, true);
     action();
-    await store.flush();
     completionVisible = false;
     afterSuccess?.();
     renderRoute();
+    reportCloudSync(store.flush());
   } catch {
     setStatus("刚才没有保存成功，可以重试");
     manualAddError.textContent = "刚才没有保存成功，可以重试。";
   } finally {
-    setBusy(false);
+    setBusy(scope, false);
   }
 }
 
@@ -718,6 +763,7 @@ function completeItem(itemId) {
   runItemAction(
     () => store.updateItem(currentUser.id, itemId, { status: "done" }),
     {
+      scope: "focusDone",
       afterSuccess: () => {
         if (shouldShowCompletion) {
           focusedItemId = null;
@@ -729,11 +775,15 @@ function completeItem(itemId) {
   );
 }
 
-async function deleteItem(itemId) {
+function deleteItem(itemId) {
+  const scope = `delete:${itemId}`;
+  if (isBusy(scope)) {
+    return;
+  }
+
   try {
-    setBusy(true);
+    setBusy(scope, true);
     store.softDeleteItem(currentUser.id, itemId);
-    await store.flush();
     deletedItemId = itemId;
     undoMessage.textContent = "已删除";
     show(undoToast);
@@ -743,10 +793,11 @@ async function deleteItem(itemId) {
       deletedItemId = null;
     }, 5000);
     renderRoute();
+    reportCloudSync(store.flush());
   } catch {
     manualAddError.textContent = "刚才没有删除成功，可以重试。";
   } finally {
-    setBusy(false);
+    setBusy(scope, false);
   }
 }
 
@@ -755,7 +806,7 @@ loginForm.addEventListener("submit", async (event) => {
   loginError.textContent = "";
 
   try {
-    setBusy(true);
+    setBusy("auth", true);
     const credentials = {
       accountName: accountInput.value,
       password: passwordInput.value,
@@ -836,7 +887,7 @@ loginForm.addEventListener("submit", async (event) => {
     loginError.textContent = "刚才没有注册成功，可以换个用户名或稍后再试。";
     passwordInput.focus();
   } finally {
-    setBusy(false);
+    setBusy("auth", false);
   }
 });
 
@@ -918,7 +969,7 @@ skipButton.addEventListener("click", () => {
     return;
   }
 
-  runItemAction(() => store.skipItem(currentUser.id, recommendation.id));
+  runItemAction(() => store.skipItem(currentUser.id, recommendation.id), { scope: "skip" });
 });
 
 focusDetailButton.addEventListener("click", () => {
@@ -950,7 +1001,7 @@ restoreCandidateButton.addEventListener("click", () => {
     return;
   }
 
-  runItemAction(() => store.updateItem(currentUser.id, candidate.id, { status: "active" }));
+  runItemAction(() => store.updateItem(currentUser.id, candidate.id, { status: "active" }), { scope: "restoreCandidate" });
 });
 
 keepParkedButton.addEventListener("click", () => {
@@ -960,45 +1011,45 @@ keepParkedButton.addEventListener("click", () => {
     return;
   }
 
-  runItemAction(() => store.snoozeParkingCandidate(currentUser.id, candidate.id));
+  runItemAction(() => store.snoozeParkingCandidate(currentUser.id, candidate.id), { scope: "keepParked" });
 });
 
-manualAddForm.addEventListener("submit", async (event) => {
+manualAddForm.addEventListener("submit", (event) => {
   event.preventDefault();
   manualAddError.textContent = "";
 
   try {
-    setBusy(true);
+    setBusy("manualAdd", true);
     store.addItem(currentUser.id, { title: manualTitleInput.value, priority: "medium" });
-    await store.flush();
     manualTitleInput.value = "";
     renderItems();
+    reportCloudSync(store.flush());
   } catch {
     manualAddError.textContent = "先写一个想法标题。";
     manualTitleInput.focus();
   } finally {
-    setBusy(false);
+    setBusy("manualAdd", false);
   }
 });
 
-undoButton.addEventListener("click", async () => {
+undoButton.addEventListener("click", () => {
   if (!deletedItemId) {
     return;
   }
 
   try {
-    setBusy(true);
+    setBusy("undoDelete", true);
     store.undoDelete(currentUser.id, deletedItemId);
-    await store.flush();
     undoMessage.textContent = "已撤销";
     deletedItemId = null;
     window.clearTimeout(undoTimer);
     undoTimer = window.setTimeout(() => hide(undoToast), 1200);
     renderRoute();
+    reportCloudSync(store.flush());
   } catch {
     undoMessage.textContent = "撤销没有成功，可以刷新后再看。";
   } finally {
-    setBusy(false);
+    setBusy("undoDelete", false);
   }
 });
 
@@ -1041,7 +1092,7 @@ detailForm.addEventListener("submit", async (event) => {
   }
 
   try {
-    setBusy(true);
+    setBusy("detailSave", true);
     store.updateItem(currentUser.id, itemId, {
       title: detailTitleInput.value,
       priority: detailPriorityInput.value,
@@ -1053,13 +1104,24 @@ detailForm.addEventListener("submit", async (event) => {
       steps,
       completedStepIndexes,
     });
-    await store.flush();
     renderDetail(itemId);
-    detailSuccess.textContent = "已保存到云端";
+    detailSuccess.textContent = "已保存在这台设备上，正在同步云端…";
+    store.flush()
+      .then(() => {
+        if (window.location.hash === `#detail/${itemId}`) {
+          detailSuccess.textContent = "已保存到云端";
+        }
+      })
+      .catch(() => {
+        if (window.location.hash === `#detail/${itemId}`) {
+          detailError.textContent = "内容已保存在这台设备上，云端暂时没连上。";
+          detailSuccess.textContent = "";
+        }
+      });
   } catch {
-    detailError.textContent = "刚才没有同步到云端，内容先在这台设备上，可以再点保存。";
+    detailError.textContent = "刚才没有保存成功，可以再试一次。";
   } finally {
-    setBusy(false);
+    setBusy("detailSave", false);
   }
 });
 

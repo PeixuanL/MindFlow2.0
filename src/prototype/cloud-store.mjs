@@ -265,6 +265,10 @@ export function createMindFlowCloudStore(options = {}) {
       return mutateAndSync(() => localStore.undoDelete(userId, itemId));
     },
 
+    syncNow() {
+      return scheduleSync();
+    },
+
     flush() {
       return syncPromise;
     },

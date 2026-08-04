@@ -236,6 +236,48 @@ test("cloud store flushes edited title, steps, and concrete step completion to r
   assert.deepEqual(remoteItem.completedStepIndexes, [1]);
 });
 
+test("cloud store can retry syncing the current local state after a failed save", async () => {
+  const storage = createMemoryStorage();
+  const savedStates = [];
+  let saveCalls = 0;
+  const session = {
+    access_token: "token",
+    user: {
+      id: "cloud-user-5",
+      email: "retry@mindflow-mu-tawny.vercel.app",
+      user_metadata: { display_name: "retry" },
+      created_at: "2026-08-03T00:00:00.000Z",
+    },
+  };
+  const store = createMindFlowCloudStore({
+    storage,
+    cloudClient: {
+      getSession: () => session,
+      signIn: async () => session,
+      fetchUserState: async () => null,
+      saveUserState: async (_userId, state) => {
+        saveCalls += 1;
+        if (saveCalls === 2) {
+          throw new Error("network_down");
+        }
+        savedStates.push(state);
+      },
+    },
+  });
+
+  const user = await store.login({
+    accountName: "retry",
+    password: "password-123",
+  });
+  const item = store.addItem(user.id, { title: "先存在本地" });
+
+  await assert.rejects(() => store.flush(), /network_down/);
+  await store.syncNow();
+
+  const remoteItem = savedStates.at(-1).users[user.id].items.find((candidate) => candidate.id === item.id);
+  assert.equal(remoteItem.title, "先存在本地");
+});
+
 test("cloud store rejects usernames that cannot map safely to auth email", async () => {
   const storage = createMemoryStorage();
   const store = createMindFlowCloudStore({

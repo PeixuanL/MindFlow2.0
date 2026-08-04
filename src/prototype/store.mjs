@@ -174,6 +174,10 @@ function visibleItems(items) {
   return items.filter((item) => item.status !== "deleted");
 }
 
+function itemSourceKey(item) {
+  return String(item?.source || item?.title || "").trim().toLocaleLowerCase();
+}
+
 function findUser(state, userId) {
   const user = state.users[userId];
   if (!user) {
@@ -463,16 +467,22 @@ export function createMindFlowStore(options = {}) {
           random,
           createdAt: now(),
         };
-        const seenSources = new Set();
-        const activeItems = (result.suggestions ?? []).map((suggestion, index) => {
-          const item = createItemFromSuggestion(suggestion, index, batch, now);
-          seenSources.add((item.source || item.title).toLocaleLowerCase());
-          return item;
-        });
+        const seenSources = new Set(visibleItems(user.items).map(itemSourceKey).filter(Boolean));
+        const activeItems = (result.suggestions ?? [])
+          .map((suggestion, index) => createItemFromSuggestion(suggestion, index, batch, now))
+          .filter((item) => {
+            const key = itemSourceKey(item);
+            if (!key || seenSources.has(key)) {
+              return false;
+            }
+
+            seenSources.add(key);
+            return true;
+          });
         const parkingItems = (result.savedItems ?? [])
           .map((savedItem) => createParkingItem(savedItem, batch, now))
           .filter((item) => {
-            const key = (item.source || item.title).toLocaleLowerCase();
+            const key = itemSourceKey(item);
             if (!key || seenSources.has(key)) {
               return false;
             }
