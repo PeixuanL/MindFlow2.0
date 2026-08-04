@@ -31,7 +31,7 @@ Privacy and cost guardrails:
 
 - API keys stay in server-side environment variables only.
 - Requests set `max_price` to zero so the prototype does not auto-spend by default.
-- `OPENROUTER_REQUIRE_ZDR=true` asks OpenRouter for zero data retention routing by default; setting it to `false` may enable free routes but weakens privacy.
+- `OPENROUTER_REQUIRE_ZDR=false` enables the temporary free-test route; set it to `true` to require zero data retention routing again.
 - The backend rejects input over 500 characters and rate-limits OpenRouter calls with `MINDFLOW_DAILY_AI_LIMIT`.
 - The deployed API does not silently save local fallback results unless `MINDFLOW_ALLOW_LOCAL_ORGANIZE=true`.
 - Keep this mode for portfolio demos and small friend testing; avoid highly sensitive medical, legal, financial, or identity information.

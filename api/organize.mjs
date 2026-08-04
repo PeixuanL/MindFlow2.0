@@ -85,7 +85,7 @@ function canUseLocalOrganizeFallback() {
 
 function getAiDiagnostics() {
   const configuredModel = process.env.OPENROUTER_MODEL || "";
-  const requireZdr = process.env.OPENROUTER_REQUIRE_ZDR !== "false";
+  const requireZdr = process.env.OPENROUTER_REQUIRE_ZDR === "true";
 
   return {
     openRouterConfigured: Boolean(process.env.OPENROUTER_API_KEY),

@@ -6,7 +6,7 @@ import {
   resolveOpenRouterModel,
 } from "../../src/prototype/openrouter-client.mjs";
 
-test("buildOpenRouterRequestBody uses JSON, ZDR, and zero-cost routing guardrails by default", () => {
+test("buildOpenRouterRequestBody uses JSON and zero-cost routing guardrails by default", () => {
   const body = buildOpenRouterRequestBody("明天要交材料，牙医还没约", {
     model: "openai/gpt-oss-20b:free",
     currentDate: "2026-08-04",
@@ -16,7 +16,7 @@ test("buildOpenRouterRequestBody uses JSON, ZDR, and zero-cost routing guardrail
   assert.equal(body.model, "openai/gpt-oss-20b:free");
   assert.equal(body.temperature, 0);
   assert.deepEqual(body.response_format, { type: "json_object" });
-  assert.deepEqual(body.provider, { zdr: true });
+  assert.equal(body.provider, undefined);
   assert.deepEqual(body.max_price, { prompt: 0, completion: 0 });
   assert.ok(combined.includes("2026-08-04"));
   assert.ok(combined.includes("仅返回 JSON"));
@@ -32,7 +32,7 @@ test("buildOpenRouterRequestBody can require ZDR when configured", () => {
   assert.deepEqual(body.max_price, { prompt: 0, completion: 0 });
 });
 
-test("buildOpenRouterRequestBody can disable ZDR only when explicitly configured", () => {
+test("buildOpenRouterRequestBody keeps ZDR disabled when explicitly configured", () => {
   const body = buildOpenRouterRequestBody("牙医还没约", {
     requireZdr: false,
   });

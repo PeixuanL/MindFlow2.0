@@ -35,7 +35,7 @@ function getMessageContent(payload) {
 
 export function buildOpenRouterRequestBody(rawText, options = {}) {
   const model = resolveOpenRouterModel(options.model);
-  const requireZdr = options.requireZdr !== false;
+  const requireZdr = options.requireZdr === true;
 
   const body = {
     model,
@@ -71,7 +71,7 @@ export function createOpenRouterClient(options = {}) {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const baseUrl = trimTrailingSlash(options.baseUrl ?? process.env.OPENROUTER_BASE_URL ?? DEFAULT_BASE_URL);
   const model = resolveOpenRouterModel(options.model ?? process.env.OPENROUTER_MODEL);
-  const requireZdr = options.requireZdr ?? process.env.OPENROUTER_REQUIRE_ZDR !== "false";
+  const requireZdr = options.requireZdr ?? process.env.OPENROUTER_REQUIRE_ZDR === "true";
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   if (!apiKey) {
