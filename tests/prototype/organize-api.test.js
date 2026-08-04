@@ -69,16 +69,19 @@ test("organize API returns local semantic output without calling external AI", a
 test("organize API reports AI diagnostics without exposing secrets", async (t) => {
   const previousKey = process.env.OPENROUTER_API_KEY;
   const previousModel = process.env.OPENROUTER_MODEL;
+  const previousRequireZdr = process.env.OPENROUTER_REQUIRE_ZDR;
   const previousAllowLocal = process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE;
 
   t.after(() => {
     restoreEnvValue("OPENROUTER_API_KEY", previousKey);
     restoreEnvValue("OPENROUTER_MODEL", previousModel);
+    restoreEnvValue("OPENROUTER_REQUIRE_ZDR", previousRequireZdr);
     restoreEnvValue("MINDFLOW_ALLOW_LOCAL_ORGANIZE", previousAllowLocal);
   });
 
   process.env.OPENROUTER_API_KEY = "test-openrouter-key";
   process.env.OPENROUTER_MODEL = "inclusionai/ling-3.0-flash:free";
+  process.env.OPENROUTER_REQUIRE_ZDR = "true";
   process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE = "false";
 
   const response = createResponse();
@@ -89,6 +92,7 @@ test("organize API reports AI diagnostics without exposing secrets", async (t) =
   assert.equal(payload.openRouterConfigured, true);
   assert.equal(payload.configuredModel, "inclusionai/ling-3.0-flash:free");
   assert.equal(payload.model, "openai/gpt-oss-20b:free");
+  assert.equal(payload.requireZdr, true);
   assert.equal(payload.localFallbackAllowed, false);
   assert.equal(JSON.stringify(payload).includes("test-openrouter-key"), false);
 });
@@ -121,10 +125,11 @@ test("organize API does not silently fall back locally when cloud AI is not conf
   assert.equal(called, false);
 });
 
-test("organize API calls OpenRouter with privacy and zero-cost guardrails when configured", async (t) => {
+test("organize API calls OpenRouter with zero-cost guardrails when configured", async (t) => {
   const previousFetch = globalThis.fetch;
   const previousKey = process.env.OPENROUTER_API_KEY;
   const previousModel = process.env.OPENROUTER_MODEL;
+  const previousRequireZdr = process.env.OPENROUTER_REQUIRE_ZDR;
   const previousLimit = process.env.MINDFLOW_DAILY_AI_LIMIT;
   const requests = [];
 
@@ -132,11 +137,13 @@ test("organize API calls OpenRouter with privacy and zero-cost guardrails when c
     globalThis.fetch = previousFetch;
     restoreEnvValue("OPENROUTER_API_KEY", previousKey);
     restoreEnvValue("OPENROUTER_MODEL", previousModel);
+    restoreEnvValue("OPENROUTER_REQUIRE_ZDR", previousRequireZdr);
     restoreEnvValue("MINDFLOW_DAILY_AI_LIMIT", previousLimit);
   });
 
   process.env.OPENROUTER_API_KEY = "test-openrouter-key";
   process.env.OPENROUTER_MODEL = "inclusionai/ling-3.0-flash:free";
+  process.env.OPENROUTER_REQUIRE_ZDR = "false";
   process.env.MINDFLOW_DAILY_AI_LIMIT = "50";
   globalThis.fetch = async (url, options) => {
     requests.push({ url, options });
@@ -211,7 +218,7 @@ test("organize API calls OpenRouter with privacy and zero-cost guardrails when c
   assert.equal(requests[0].url, "https://openrouter.ai/api/v1/chat/completions");
   assert.equal(requests[0].options.headers.Authorization, "Bearer test-openrouter-key");
   assert.equal(body.model, "openai/gpt-oss-20b:free");
-  assert.equal(body.provider.zdr, true);
+  assert.equal(body.provider, undefined);
   assert.deepEqual(body.max_price, { prompt: 0, completion: 0 });
   assert.equal(body.messages[1].content, "牙医还没约");
   assert.equal(payload.aiJson.includes("\"预约牙医\""), true);

@@ -85,11 +85,13 @@ function canUseLocalOrganizeFallback() {
 
 function getAiDiagnostics() {
   const configuredModel = process.env.OPENROUTER_MODEL || "";
+  const requireZdr = process.env.OPENROUTER_REQUIRE_ZDR !== "false";
 
   return {
     openRouterConfigured: Boolean(process.env.OPENROUTER_API_KEY),
     configuredModel: configuredModel || null,
     model: resolveOpenRouterModel(configuredModel),
+    requireZdr,
     localFallbackAllowed: canUseLocalOrganizeFallback(),
   };
 }
@@ -160,8 +162,11 @@ export default async function handler(request, response) {
     try {
       await sendOpenRouterResult(response, rawText);
       return;
-    } catch {
-      sendJson(response, 503, { error: "ai_unavailable", reason: "openrouter_failed" });
+    } catch (error) {
+      const reason = typeof error?.message === "string" && error.message.startsWith("openrouter_request_failed_")
+        ? error.message
+        : "openrouter_failed";
+      sendJson(response, 503, { error: "ai_unavailable", reason });
       return;
     }
   }

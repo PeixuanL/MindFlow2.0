@@ -35,8 +35,9 @@ function getMessageContent(payload) {
 
 export function buildOpenRouterRequestBody(rawText, options = {}) {
   const model = resolveOpenRouterModel(options.model);
+  const requireZdr = options.requireZdr !== false;
 
-  return {
+  const body = {
     model,
     messages: buildMindFlowMessages(rawText, {
       currentDate: options.currentDate,
@@ -45,14 +46,19 @@ export function buildOpenRouterRequestBody(rawText, options = {}) {
     response_format: {
       type: "json_object",
     },
-    provider: {
-      zdr: true,
-    },
     max_price: {
       prompt: 0,
       completion: 0,
     },
   };
+
+  if (requireZdr) {
+    body.provider = {
+      zdr: true,
+    };
+  }
+
+  return body;
 }
 
 export function resolveOpenRouterModel(model) {
@@ -65,6 +71,7 @@ export function createOpenRouterClient(options = {}) {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const baseUrl = trimTrailingSlash(options.baseUrl ?? process.env.OPENROUTER_BASE_URL ?? DEFAULT_BASE_URL);
   const model = resolveOpenRouterModel(options.model ?? process.env.OPENROUTER_MODEL);
+  const requireZdr = options.requireZdr ?? process.env.OPENROUTER_REQUIRE_ZDR !== "false";
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   if (!apiKey) {
@@ -88,12 +95,12 @@ export function createOpenRouterClient(options = {}) {
           "HTTP-Referer": "https://mindflow-mu-tawny.vercel.app",
           "X-Title": "MindFlow private prototype",
         },
-        body: JSON.stringify(buildOpenRouterRequestBody(rawText, { model })),
+        body: JSON.stringify(buildOpenRouterRequestBody(rawText, { model, requireZdr })),
         signal: controller.signal,
       });
 
       if (!response.ok) {
-        throw new Error("openrouter_request_failed");
+        throw new Error(`openrouter_request_failed_${response.status}`);
       }
 
       return getMessageContent(await response.json());
