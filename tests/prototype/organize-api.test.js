@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { Readable } from "node:stream";
 import handler from "../../api/organize.mjs";
 
-function createRequest(body) {
+function createRequest(body, method = "POST") {
   const request = Readable.from([JSON.stringify(body)]);
-  request.method = "POST";
+  request.method = method;
   return request;
 }
 
@@ -39,13 +39,16 @@ function restoreEnvValue(key, value) {
 test("organize API returns local semantic output without calling external AI", async (t) => {
   const previousFetch = globalThis.fetch;
   const previousKey = process.env.OPENROUTER_API_KEY;
+  const previousAllowLocal = process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE;
 
   t.after(() => {
     globalThis.fetch = previousFetch;
     restoreEnvValue("OPENROUTER_API_KEY", previousKey);
+    restoreEnvValue("MINDFLOW_ALLOW_LOCAL_ORGANIZE", previousAllowLocal);
   });
 
   delete process.env.OPENROUTER_API_KEY;
+  process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE = "true";
   globalThis.fetch = async () => {
     throw new Error("should_not_call_external_ai");
   };
@@ -63,6 +66,60 @@ test("organize API returns local semantic output without calling external AI", a
   assert.deepEqual(result.items[0].focusSteps, ["找到积分代办卡片", "给待办行加勾选框", "勾选后显示删除线"]);
 });
 
+test("organize API reports AI diagnostics without exposing secrets", async (t) => {
+  const previousKey = process.env.OPENROUTER_API_KEY;
+  const previousModel = process.env.OPENROUTER_MODEL;
+  const previousAllowLocal = process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE;
+
+  t.after(() => {
+    restoreEnvValue("OPENROUTER_API_KEY", previousKey);
+    restoreEnvValue("OPENROUTER_MODEL", previousModel);
+    restoreEnvValue("MINDFLOW_ALLOW_LOCAL_ORGANIZE", previousAllowLocal);
+  });
+
+  process.env.OPENROUTER_API_KEY = "test-openrouter-key";
+  process.env.OPENROUTER_MODEL = "inclusionai/ling-3.0-flash:free";
+  process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE = "false";
+
+  const response = createResponse();
+  await handler(createRequest({}, "GET"), response);
+  const payload = JSON.parse(response.body);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(payload.openRouterConfigured, true);
+  assert.equal(payload.model, "inclusionai/ling-3.0-flash:free");
+  assert.equal(payload.localFallbackAllowed, false);
+  assert.equal(JSON.stringify(payload).includes("test-openrouter-key"), false);
+});
+
+test("organize API does not silently fall back locally when cloud AI is not configured", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousKey = process.env.OPENROUTER_API_KEY;
+  const previousAllowLocal = process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE;
+  let called = false;
+
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    restoreEnvValue("OPENROUTER_API_KEY", previousKey);
+    restoreEnvValue("MINDFLOW_ALLOW_LOCAL_ORGANIZE", previousAllowLocal);
+  });
+
+  delete process.env.OPENROUTER_API_KEY;
+  process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE = "false";
+  globalThis.fetch = async () => {
+    called = true;
+    throw new Error("should_not_call_external_ai");
+  };
+
+  const response = createResponse();
+  await handler(createRequest({ rawText: "登录问题没有修好" }), response);
+  const payload = JSON.parse(response.body);
+
+  assert.equal(response.statusCode, 503);
+  assert.equal(payload.error, "ai_not_configured");
+  assert.equal(called, false);
+});
+
 test("organize API calls OpenRouter with privacy and zero-cost guardrails when configured", async (t) => {
   const previousFetch = globalThis.fetch;
   const previousKey = process.env.OPENROUTER_API_KEY;
@@ -78,7 +135,7 @@ test("organize API calls OpenRouter with privacy and zero-cost guardrails when c
   });
 
   process.env.OPENROUTER_API_KEY = "test-openrouter-key";
-  process.env.OPENROUTER_MODEL = "openrouter/free";
+  process.env.OPENROUTER_MODEL = "inclusionai/ling-3.0-flash:free";
   process.env.MINDFLOW_DAILY_AI_LIMIT = "50";
   globalThis.fetch = async (url, options) => {
     requests.push({ url, options });
@@ -152,7 +209,7 @@ test("organize API calls OpenRouter with privacy and zero-cost guardrails when c
   assert.equal(response.statusCode, 200);
   assert.equal(requests[0].url, "https://openrouter.ai/api/v1/chat/completions");
   assert.equal(requests[0].options.headers.Authorization, "Bearer test-openrouter-key");
-  assert.equal(body.model, "openrouter/free");
+  assert.equal(body.model, "inclusionai/ling-3.0-flash:free");
   assert.equal(body.provider.zdr, true);
   assert.deepEqual(body.max_price, { prompt: 0, completion: 0 });
   assert.equal(body.messages[1].content, "牙医还没约");
@@ -237,7 +294,18 @@ test("organize API rejects overly long input before external AI", async (t) => {
   assert.equal(called, false);
 });
 
-test("organize API handles active card sync input locally", async () => {
+test("organize API handles active card sync input locally when explicitly allowed", async (t) => {
+  const previousAllowLocal = process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE;
+  const previousKey = process.env.OPENROUTER_API_KEY;
+
+  t.after(() => {
+    restoreEnvValue("OPENROUTER_API_KEY", previousKey);
+    restoreEnvValue("MINDFLOW_ALLOW_LOCAL_ORGANIZE", previousAllowLocal);
+  });
+
+  delete process.env.OPENROUTER_API_KEY;
+  process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE = "true";
+
   const response = createResponse();
   await handler(createRequest({
     rawText: "active卡片的标题和具体拆分的代办没有生效",

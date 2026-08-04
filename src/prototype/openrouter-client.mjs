@@ -1,7 +1,7 @@
 import { buildMindFlowMessages } from "./ollama-client.mjs";
 
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_MODEL = "openrouter/free";
+const DEFAULT_MODEL = "inclusionai/ling-3.0-flash:free";
 const DEFAULT_TIMEOUT_MS = 90000;
 
 function trimTrailingSlash(value) {

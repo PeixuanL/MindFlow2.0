@@ -76,6 +76,18 @@ function getDailyOpenRouterLimit() {
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_DAILY_OPENROUTER_LIMIT;
 }
 
+function canUseLocalOrganizeFallback() {
+  return process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE === "true";
+}
+
+function getAiDiagnostics() {
+  return {
+    openRouterConfigured: Boolean(process.env.OPENROUTER_API_KEY),
+    model: process.env.OPENROUTER_MODEL || "inclusionai/ling-3.0-flash:free",
+    localFallbackAllowed: canUseLocalOrganizeFallback(),
+  };
+}
+
 function allowOpenRouterRequest(request) {
   const requesterId = getRequesterId(request);
   const dateKey = getShanghaiDateKey();
@@ -102,6 +114,11 @@ async function sendOpenRouterResult(response, rawText) {
 }
 
 export default async function handler(request, response) {
+  if (request.method === "GET") {
+    sendJson(response, 200, getAiDiagnostics());
+    return;
+  }
+
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
     sendJson(response, 405, { error: "method_not_allowed" });
@@ -141,6 +158,11 @@ export default async function handler(request, response) {
       sendJson(response, 503, { error: "ai_unavailable", reason: "openrouter_failed" });
       return;
     }
+  }
+
+  if (!canUseLocalOrganizeFallback()) {
+    sendJson(response, 503, { error: "ai_not_configured" });
+    return;
   }
 
   sendLocalSemanticResult(response, rawText);

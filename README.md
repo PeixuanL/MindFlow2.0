@@ -33,4 +33,5 @@ Privacy and cost guardrails:
 - Requests ask OpenRouter to use zero data retention routing with `provider.zdr: true`.
 - Requests set `max_price` to zero so the prototype only uses free routes by default.
 - The backend rejects input over 500 characters and rate-limits OpenRouter calls with `MINDFLOW_DAILY_AI_LIMIT`.
+- The deployed API does not silently save local fallback results unless `MINDFLOW_ALLOW_LOCAL_ORGANIZE=true`.
 - Keep this mode for portfolio demos and small friend testing; avoid highly sensitive medical, legal, financial, or identity information.

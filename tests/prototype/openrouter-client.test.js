@@ -7,12 +7,12 @@ import {
 
 test("buildOpenRouterRequestBody uses JSON, ZDR, and zero-cost routing guardrails", () => {
   const body = buildOpenRouterRequestBody("明天要交材料，牙医还没约", {
-    model: "openrouter/free",
+    model: "inclusionai/ling-3.0-flash:free",
     currentDate: "2026-08-04",
   });
   const combined = body.messages.map((message) => message.content).join("\n");
 
-  assert.equal(body.model, "openrouter/free");
+  assert.equal(body.model, "inclusionai/ling-3.0-flash:free");
   assert.equal(body.temperature, 0);
   assert.deepEqual(body.response_format, { type: "json_object" });
   assert.equal(body.provider.zdr, true);
@@ -26,7 +26,7 @@ test("createOpenRouterClient posts through the OpenAI-compatible chat completion
   const requests = [];
   const client = createOpenRouterClient({
     apiKey: "test-key",
-    model: "openrouter/free",
+    model: "inclusionai/ling-3.0-flash:free",
     fetchImpl: async (url, options) => {
       requests.push({ url, options });
       return {

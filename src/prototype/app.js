@@ -736,7 +736,6 @@ async function organizeCurrentInput() {
     setStatus("正在帮你分开这些想法");
     const result = await organizeThoughtsWithAi(rawText, {
       aiClient: serverAiClient,
-      preferLocalFast: true,
     });
 
     if (result.status === "empty") {
