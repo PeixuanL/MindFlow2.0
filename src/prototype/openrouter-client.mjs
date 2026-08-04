@@ -1,8 +1,9 @@
 import { buildMindFlowMessages } from "./ollama-client.mjs";
 
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_MODEL = "openai/gpt-oss-20b:free";
+const DEFAULT_MODEL = "nvidia/nemotron-nano-9b-v2:free";
 const DEFAULT_TIMEOUT_MS = 90000;
+const DEFAULT_MAX_TOKENS = 1400;
 const JSON_INCOMPATIBLE_FREE_MODELS = new Set([
   "inclusionai/ling-3.0-flash:free",
   "google/gemma-4-31b-it:free",
@@ -43,6 +44,7 @@ export function buildOpenRouterRequestBody(rawText, options = {}) {
       currentDate: options.currentDate,
     }),
     temperature: 0,
+    max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
     response_format: {
       type: "json_object",
     },
