@@ -13,6 +13,7 @@ test("buildMindFlowMessages asks for MindFlow JSON without exposing any secret",
   assert.equal(messages[1].role, "user");
   assert.ok(combined.includes("仅返回 JSON"));
   assert.ok(combined.includes("focusSteps"));
+  assert.ok(combined.includes("语义细胞"));
   assert.ok(combined.includes("可开始性 > 清晰度 > 时间线索 > 重要性"));
   assert.ok(combined.includes("nextStep 需要是一个看得见的具体动作"));
   assert.ok(combined.includes("不要按标点、换行或序号直接拆分任务"));
@@ -21,6 +22,7 @@ test("buildMindFlowMessages asks for MindFlow JSON without exposing any secret",
   assert.ok(combined.includes("coverageCheck"));
   assert.ok(combined.includes("同一件事在多个地方出现"));
   assert.ok(combined.includes("去除口语填充词"));
+  assert.ok(combined.includes("title、nextStep、focusSteps 里禁止保留"));
   assert.ok(combined.includes("assignTo"));
   assert.ok(combined.includes("dueAt"));
   assert.ok(combined.includes("tags"));

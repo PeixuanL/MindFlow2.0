@@ -1,6 +1,7 @@
 import {
   createLocalSemanticResult,
   getOrganizedResultSaveBlocker,
+  organizeThoughtsWithAi,
 } from "../src/prototype/ai-organizer.mjs";
 import { createOpenRouterClient } from "../src/prototype/openrouter-client.mjs";
 
@@ -93,8 +94,11 @@ function allowOpenRouterRequest(request) {
 
 async function sendOpenRouterResult(response, rawText) {
   const openRouterClient = createOpenRouterClient();
-  const aiJson = await openRouterClient({ rawText });
-  sendJson(response, 200, { aiJson });
+  const result = await organizeThoughtsWithAi(rawText, {
+    aiClient: openRouterClient,
+  });
+
+  sendOrganizedResult(response, rawText, result);
 }
 
 export default async function handler(request, response) {

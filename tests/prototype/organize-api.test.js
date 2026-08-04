@@ -157,6 +157,59 @@ test("organize API calls OpenRouter with privacy and zero-cost guardrails when c
   assert.deepEqual(body.max_price, { prompt: 0, completion: 0 });
   assert.equal(body.messages[1].content, "牙医还没约");
   assert.equal(payload.aiJson.includes("\"预约牙医\""), true);
+  assert.equal(JSON.parse(payload.aiJson).meta.modelBehavior, "ai");
+});
+
+test("organize API blocks OpenRouter responses that ignore semantic evidence", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousKey = process.env.OPENROUTER_API_KEY;
+  const previousLimit = process.env.MINDFLOW_DAILY_AI_LIMIT;
+
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    restoreEnvValue("OPENROUTER_API_KEY", previousKey);
+    restoreEnvValue("MINDFLOW_DAILY_AI_LIMIT", previousLimit);
+  });
+
+  process.env.OPENROUTER_API_KEY = "test-openrouter-key";
+  process.env.MINDFLOW_DAILY_AI_LIMIT = "50";
+  globalThis.fetch = async () => ({
+    ok: true,
+    async json() {
+      return {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                status: "organized",
+                message: "其他想法都还在",
+                suggestions: [
+                  {
+                    title: "就是整理一下",
+                    reason: "感觉可以先看。",
+                    nextStep: "开始处理。",
+                    focusSteps: ["开始处理"],
+                    source: "就是有很多事情",
+                  },
+                ],
+                savedItems: [],
+              }),
+            },
+          },
+        ],
+      };
+    },
+  });
+
+  const response = createResponse();
+  await handler(createRequest({
+    rawText: "P0 重新梳理自我介绍\nP1 找外企岗位\nP1 优化面试准备 skill",
+  }), response);
+  const payload = JSON.parse(response.body);
+
+  assert.equal(response.statusCode, 503);
+  assert.equal(payload.error, "ai_unavailable");
+  assert.equal(payload.reason, "generic_next_step");
 });
 
 test("organize API rejects overly long input before external AI", async (t) => {

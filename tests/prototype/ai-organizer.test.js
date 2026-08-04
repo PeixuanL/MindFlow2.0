@@ -342,6 +342,38 @@ test("normalizeAiResult fills optional UI defaults without replacing valid AI co
   assert.deepEqual(result.actions, ["看一下", "先不管"]);
 });
 
+test("normalizeAiResult removes spoken filler from visible AI fields while preserving source evidence", () => {
+  const result = normalizeAiResult({
+    status: "organized",
+    inputMode: "spoken",
+    semanticUnits: [
+      { id: "u1", text: "就是那个登录问题没有修好", role: "task", topicHint: "登录" },
+    ],
+    items: [
+      {
+        id: "item_1",
+        title: "就是那个登录问题",
+        sourceUnitIds: ["u1"],
+        mentions: ["就是那个登录问题没有修好"],
+        priority: "medium",
+        assignTo: "active",
+        reason: "感觉这个比较清楚。",
+        nextStep: "就是先打开登录页面。",
+        focusSteps: ["那个复现登录问题", "这个确认报错位置"],
+      },
+    ],
+    recommendedNow: { itemId: "item_1" },
+    coverageCheck: { coveredUnitIds: ["u1"] },
+    meta: { modelBehavior: "ai" },
+  });
+
+  assert.equal(result.suggestion.title, "登录问题");
+  assert.equal(result.suggestion.reason, "比较清楚。");
+  assert.equal(result.suggestion.nextStep, "先打开登录页面。");
+  assert.deepEqual(result.suggestion.focusSteps, ["复现登录问题", "确认报错位置"]);
+  assert.deepEqual(result.suggestion.mentions, ["就是那个登录问题没有修好"]);
+});
+
 test("normalizeAiResult preserves semantic task fields from AI output", () => {
   const result = normalizeAiResult(
     buildValidAiResponse({

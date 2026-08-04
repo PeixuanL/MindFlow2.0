@@ -9,6 +9,7 @@ const DEFAULT_META = {
 };
 const PRESSURE_LANGUAGE_PATTERN = /必须|赶紧|立刻|拖太久|否则|应该早就/;
 const TITLE_FILLER_PATTERN = /^(我想|我觉得|我需要|我得|我要|想要|想|然后|同时|顺便|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)+/u;
+const DISPLAY_FILLER_PATTERN = /(?:我感觉|我觉得|我想|我需要|我得|我要|想要|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)/gu;
 const TITLE_TIME_PATTERN = /(今天|今晚|明天|后天|大后天|几小时后|几个小时后|[一二两三四五六七八九十0-9]+个?小时后|[一二两三四五六七八九十0-9]+天后|下周[一二三四五六日天]?|下个月|上午|中午|下午|晚上|早上|凌晨|今晚|明晚)/gu;
 const LOCAL_SEMANTIC_MAX_ITEMS = 5;
 const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
@@ -115,12 +116,23 @@ function normalizeCoverageCheck(coverageCheck) {
 function cleanTaskTitle(title, timeHint, dueAt) {
   const cleaned = String(title ?? "")
     .replace(TITLE_FILLER_PATTERN, "")
+    .replace(DISPLAY_FILLER_PATTERN, "")
     .replace(dueAt && hasText(timeHint) ? String(timeHint).trim() : "", "")
     .replace(dueAt ? TITLE_TIME_PATTERN : /$^/u, "")
     .replace(/^[，,。.\s、]+|[，,。.\s、]+$/gu, "")
     .trim();
 
   return cleaned || String(title ?? "").trim();
+}
+
+function cleanDisplayText(text) {
+  const cleaned = String(text ?? "")
+    .replace(DISPLAY_FILLER_PATTERN, "")
+    .replace(/\s{2,}/gu, " ")
+    .replace(/^[，,\s、；;]+|[，,\s、；;]+$/gu, "")
+    .trim();
+
+  return cleaned || String(text ?? "").trim();
 }
 
 function fallback(rawText, fallbackOrganizer, reason) {
@@ -162,9 +174,9 @@ function normalizeSuggestion(suggestion, index) {
     label: hasText(suggestion.label) ? suggestion.label : DEFAULT_LABEL,
     priority: normalizePriority(suggestion.priority, index + 1),
     title,
-    reason: suggestion.reason,
-    nextStep: suggestion.nextStep,
-    focusSteps: suggestion.focusSteps,
+    reason: hasText(suggestion.reason) ? cleanDisplayText(suggestion.reason) : suggestion.reason,
+    nextStep: hasText(suggestion.nextStep) ? cleanDisplayText(suggestion.nextStep) : suggestion.nextStep,
+    focusSteps: normalizeTextArray(suggestion.focusSteps).map(cleanDisplayText),
     source: hasText(suggestion.source) ? suggestion.source : suggestion.title,
     category: hasText(suggestion.category) ? suggestion.category : "unknown",
     energy: hasText(suggestion.energy) ? suggestion.energy : "unknown",
@@ -184,7 +196,7 @@ function normalizeSemanticItem(item, index, recommendedNow) {
   const timeHint = item.timeHint ?? null;
   const dueAt = hasText(item.dueAt) ? item.dueAt.trim() : null;
   const title = cleanTaskTitle(item.title, timeHint, dueAt);
-  const nextStep = hasText(item.nextStep) ? item.nextStep : recommendedNow?.nextStep;
+  const nextStep = hasText(item.nextStep) ? cleanDisplayText(item.nextStep) : cleanDisplayText(recommendedNow?.nextStep);
   const focusSteps = Array.isArray(item.focusSteps)
     ? item.focusSteps
     : normalizeTextArray(item.steps);
@@ -198,9 +210,9 @@ function normalizeSemanticItem(item, index, recommendedNow) {
     id: hasText(item.id) ? item.id.trim() : `item_${index + 1}`,
     priority: normalizePriority(item.priority, index + 1),
     title,
-    reason: hasText(item.reason) ? item.reason : recommendedNow?.reason,
+    reason: hasText(item.reason) ? cleanDisplayText(item.reason) : cleanDisplayText(recommendedNow?.reason),
     nextStep,
-    focusSteps: focusSteps.length > 0 ? focusSteps : normalizeTextArray([nextStep]),
+    focusSteps: (focusSteps.length > 0 ? normalizeTextArray(focusSteps) : normalizeTextArray([nextStep])).map(cleanDisplayText),
     source,
     category: hasText(item.category) ? item.category : hasText(item.type) ? item.type : "unknown",
     energy: hasText(item.energy) ? item.energy : "unknown",
