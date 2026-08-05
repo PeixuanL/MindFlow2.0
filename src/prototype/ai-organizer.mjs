@@ -15,7 +15,7 @@ const LOCAL_SEMANTIC_MAX_ITEMS = 5;
 const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
 const LOCAL_SPEECH_FILLER_PATTERN = /(?:我感觉|感觉|其实|就是|那个|这个|有点|一些|现在|今天|昨天|刚才|以及|然后|同时|顺便)/gu;
 const LOCAL_CONTEXT_ONLY_PATTERN = /(部署到Vercel之后|部署.*之后$|解决方案.*昨天.*拆解|昨天.*拆解|跑得挺好|跑得挺好的|连着.*模型)/u;
-const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复|自测|测试|拆成步骤|模型.*慢|牙医|保险|消息没回|没回|房间|作品集|论文材料|找工作|求职|体检报告|账单|厨房|方案|快递|护照|过期|水电费|没交|桌面|面试|简历|自我介绍|练|冰箱|垃圾|衣服|本地登录|整理速度|提交|客厅|杯子|水果|验证码|医院预约|论文摘要|申请材料|推荐信|作品集链接|洗衣液|物业|通知|发出去|发给|提醒|检查|记得|顺路|买|洗|晾|扔|拿|取)/iu;
+const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复|自测|测试|拆成步骤|模型.*慢|牙医|保险|消息没回|没回|房间|作品集|论文材料|找工作|求职|体检报告|账单|厨房|方案|快递|护照|过期|水电费|没交|桌面|面试|简历|自我介绍|练|冰箱|垃圾|衣服|本地登录|整理速度|提交|客厅|杯子|水果|验证码|医院预约|论文摘要|申请材料|推荐信|作品集链接|洗衣液|物业|通知|发出去|发给|提醒|检查|记得|顺路|买|洗|晾|扔|拿|取|猫砂|猫疫苗|疫苗|房东|漏水|拍视频|快没)/iu;
 
 function toInputText(rawText) {
   return typeof rawText === "string" ? rawText : String(rawText ?? "");
@@ -762,6 +762,18 @@ function createLocalSemanticTitle(units) {
     return "查看物业通知";
   }
 
+  if (/猫砂/u.test(combined) && /快没|没了|买/u.test(combined)) {
+    return "买猫砂";
+  }
+
+  if (/猫疫苗|疫苗/u.test(combined) && /约|预约|还没/u.test(combined)) {
+    return "预约猫疫苗";
+  }
+
+  if (/房东/u.test(combined) && /漏水/u.test(combined) && /拍|视频/u.test(combined)) {
+    return "拍漏水视频给房东";
+  }
+
   if (/牙医/u.test(combined) && /约|预约|没约/u.test(combined)) {
     return "预约牙医";
   }
@@ -937,6 +949,9 @@ function createLocalSemanticNextStep(title, focusSteps) {
     检查作品集链接: "打开作品集链接，先确认页面能访问。",
     买洗衣液: "先记下常用洗衣液品牌或规格。",
     查看物业通知: "打开物业群，先看最新通知。",
+    买猫砂: "打开常用购物入口，先确认猫砂规格。",
+    预约猫疫苗: "打开宠物医院联系方式，先问可预约时间。",
+    拍漏水视频给房东: "打开相机，先拍一段洗手间漏水视频。",
   };
 
   if (titleSteps[title]) {

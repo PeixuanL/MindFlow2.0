@@ -222,6 +222,11 @@ const everydayNaturalLanguageCases = [
     rawText: "晚上回家前记得取快递，顺路买洗衣液，然后把物业群里的通知看一下。",
     titles: ["取快递", "买洗衣液", "查看物业通知"],
   },
+  {
+    name: "pet care and home repair",
+    rawText: "猫砂快没了，猫疫苗还没约，房东说洗手间漏水要拍视频给他。",
+    titles: ["买猫砂", "预约猫疫苗", "拍漏水视频给房东"],
+  },
 ];
 
 for (const fixture of everydayNaturalLanguageCases) {
