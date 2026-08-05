@@ -15,7 +15,7 @@ const LOCAL_SEMANTIC_MAX_ITEMS = 5;
 const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
 const LOCAL_SPEECH_FILLER_PATTERN = /(?:我感觉|感觉|其实|就是|那个|这个|有点|一些|现在|今天|昨天|刚才|以及|然后|同时|顺便)/gu;
 const LOCAL_CONTEXT_ONLY_PATTERN = /(部署到Vercel之后|部署.*之后$|解决方案.*昨天.*拆解|昨天.*拆解|跑得挺好|跑得挺好的|连着.*模型)/u;
-const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复)/iu;
+const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复|自测|拆成步骤|模型.*慢|牙医|保险|消息没回|没回|房间|作品集|论文材料|找工作|求职)/iu;
 
 function toInputText(rawText) {
   return typeof rawText === "string" ? rawText : String(rawText ?? "");
@@ -587,6 +587,7 @@ function splitLocalSemanticUnits(rawText) {
   }
 
   return inputText
+    .replace(/(?:然后|同时|顺便|以及)(?=\S)/gu, "\n")
     .split(/[\n。；;]+|[，,](?=\S)/u)
     .map(cleanLocalUnit)
     .filter(Boolean)
@@ -612,7 +613,7 @@ function shouldGroupLocalUnits(units) {
     return /^(然后|再|并且|以及|同时|完成后|保存后|改完|勾完|选完|这一条|这个|这个按钮|它|这版)/u.test(units[1]);
   }
 
-  return units.length <= 3 && units.some((unit) => /同一|这个|这一条|按钮|卡片|代办|完成|状态|标题/u.test(unit));
+  return units.length <= 3 && units.some((unit) => /同一|这一条|按钮|卡片|代办|状态|标题/u.test(unit));
 }
 
 function extractKeywordTitle(text) {
@@ -633,12 +634,44 @@ function createLocalSemanticTitle(units) {
     return "解决登录问题";
   }
 
+  if (/登录/u.test(combined) && /自测|测试|验证/u.test(combined)) {
+    return "自测登录流程";
+  }
+
   if (/语音识别/u.test(combined) && /优化|技术方案|方案/u.test(combined)) {
     return "优化语音识别技术方案";
   }
 
   if (/找工作|求职|投简历|投递/u.test(combined) && /简历|作品集|面试/u.test(combined)) {
     return "求职准备";
+  }
+
+  if (/牙医/u.test(combined) && /约|预约|没约/u.test(combined)) {
+    return "预约牙医";
+  }
+
+  if (/房间/u.test(combined) && /整理|收拾/u.test(combined)) {
+    return "整理房间";
+  }
+
+  if (/保险/u.test(combined) && /(看|查看|确认|事|事项)/u.test(combined)) {
+    return "查看保险事项";
+  }
+
+  if (/小王/u.test(combined) && /消息|回复|没回|回/u.test(combined)) {
+    return "回复小王消息";
+  }
+
+  if (/论文/u.test(combined) && /材料/u.test(combined)) {
+    return "整理论文材料";
+  }
+
+  if (/作品集/u.test(combined) && /整理|计划|拆/u.test(combined)) {
+    return "整理作品集";
+  }
+
+  if (/本地模型|模型/u.test(combined) && /慢|耗时|速度/u.test(combined)) {
+    return "排查本地模型整理耗时";
   }
 
   if (/语义|拆解|理解/u.test(combined) && /歧义|歧词|过滤/u.test(combined)) {
@@ -671,12 +704,44 @@ function createLocalSemanticFocusSteps(title, units) {
     return ["复现登录问题", "定位失败环节", "验证登录流程"];
   }
 
+  if (title === "自测登录流程") {
+    return ["打开登录页", "注册一个本机账号", "退出后重新登录"];
+  }
+
   if (title === "优化语音识别技术方案" || (/语音识别/u.test(combined) && /优化|技术方案|方案/u.test(combined))) {
     return ["梳理识别方案", "对比可选技术", "确定验证指标"];
   }
 
   if (title === "求职准备" || (/找工作|求职|投简历|投递/u.test(combined) && /简历|作品集|面试/u.test(combined))) {
     return ["更新简历", "整理作品集", "准备面试素材"];
+  }
+
+  if (title === "预约牙医") {
+    return ["打开通讯录", "找到诊所电话", "问一个可预约时间"];
+  }
+
+  if (title === "整理房间") {
+    return ["先清空桌面", "把地面杂物归类", "丢掉一袋不用的东西"];
+  }
+
+  if (title === "查看保险事项") {
+    return ["找到保险相关消息", "确认需要处理的问题", "记下下一步联系人"];
+  }
+
+  if (title === "回复小王消息") {
+    return ["打开和小王的聊天", "看最后一条消息", "先回一句确认收到"];
+  }
+
+  if (title === "整理论文材料") {
+    return ["打开论文材料文件夹", "列出缺的材料", "先整理一个文件"];
+  }
+
+  if (title === "整理作品集") {
+    return ["打开作品集文件夹", "列出需要整理的项目", "先补一个项目说明"];
+  }
+
+  if (title === "排查本地模型整理耗时") {
+    return ["复现一次整理耗时", "记录接口等待时间", "换成本地快路径验证"];
   }
 
   if (/语义|拆解|理解/u.test(combined) && /歧义|歧词|过滤/u.test(combined)) {
@@ -710,6 +775,21 @@ function createLocalSemanticFocusSteps(title, units) {
 function createLocalSemanticNextStep(title, focusSteps) {
   if (title === "求职准备") {
     return "打开简历文件，先补最近一个项目。";
+  }
+
+  const titleSteps = {
+    预约牙医: "打开通讯录，找到诊所电话。",
+    整理房间: "先清空桌面上最明显的一小块。",
+    查看保险事项: "先找到保险相关的那条消息。",
+    回复小王消息: "打开和小王的聊天，先看最后一句。",
+    整理论文材料: "打开论文材料文件夹，先列出缺的材料。",
+    整理作品集: "打开作品集文件夹，先看有哪些项目。",
+    排查本地模型整理耗时: "复现一次整理，先记录等待秒数。",
+    自测登录流程: "打开登录页，先注册一个本机账号。",
+  };
+
+  if (titleSteps[title]) {
+    return titleSteps[title];
   }
 
   const firstStep = focusSteps[0] ?? `定位「${title}」`;

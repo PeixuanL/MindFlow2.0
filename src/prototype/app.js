@@ -1,4 +1,5 @@
 import {
+  createLocalSemanticResult,
   getOrganizedResultSaveBlocker,
   organizeThoughtsWithAi,
 } from "./ai-organizer.mjs";
@@ -743,9 +744,11 @@ async function organizeCurrentInput() {
   try {
     setBusy("organize", true);
     setStatus("正在帮你分开这些想法");
-    const result = await organizeThoughtsWithAi(rawText, {
-      aiClient: serverAiClient,
-    });
+    const result = isLocalPrototypeHost
+      ? createLocalSemanticResult(rawText)
+      : await organizeThoughtsWithAi(rawText, {
+        aiClient: serverAiClient,
+      });
 
     if (result.status === "empty") {
       captureError.textContent = result.message;
@@ -769,7 +772,7 @@ async function organizeCurrentInput() {
     renderHome();
     showToast("已经保存在这台设备上", "去看看", () => navigate("#items"));
     reportCloudSync(store.flush(), {
-      successMessage: "云端同步好了",
+      successMessage: isLocalPrototypeHost ? "" : "云端同步好了",
     });
   } catch (error) {
     if (error.message === "nothing_to_save") {

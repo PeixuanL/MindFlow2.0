@@ -140,6 +140,37 @@ test("createLocalSemanticResult decomposes a broad project into startable focus 
   assert.equal(getOrganizedResultSaveBlocker(result, "我要找工作，但是简历作品集面试都没弄，好乱。"), null);
 });
 
+test("createLocalSemanticResult handles everyday mixed input without waiting for AI", () => {
+  const rawText = "牙医还没约，周末整理房间，保险那个事也要看，小王消息没回，论文材料有点烦";
+  const result = createLocalSemanticResult(rawText);
+
+  assert.equal(result.status, "organized");
+  assert.equal(result.meta.modelBehavior, "local_semantic");
+  assert.deepEqual(result.items.map((item) => item.title), [
+    "预约牙医",
+    "整理房间",
+    "查看保险事项",
+    "回复小王消息",
+    "整理论文材料",
+  ]);
+  assert.equal(result.items[0].nextStep, "打开通讯录，找到诊所电话。");
+  assert.equal(getOrganizedResultSaveBlocker(result, rawText), null);
+});
+
+test("createLocalSemanticResult splits local model slowness, login check, and portfolio plan", () => {
+  const rawText = "我感觉现在这个本地模型整理得非常慢，然后登录也要自测一下，同时看看作品集计划能不能拆成步骤";
+  const result = createLocalSemanticResult(rawText);
+
+  assert.equal(result.status, "organized");
+  assert.equal(result.meta.modelBehavior, "local_semantic");
+  assert.deepEqual(result.items.map((item) => item.title), [
+    "排查本地模型整理耗时",
+    "自测登录流程",
+    "整理作品集",
+  ]);
+  assert.equal(getOrganizedResultSaveBlocker(result, rawText), null);
+});
+
 test("createLocalSemanticResult keeps separate tasks joined by repeated need verbs", () => {
   const result = createLocalSemanticResult("得把登录的问题解决了，还得优化语音识别的技术方案");
 
