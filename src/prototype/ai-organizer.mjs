@@ -15,7 +15,7 @@ const LOCAL_SEMANTIC_MAX_ITEMS = 5;
 const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
 const LOCAL_SPEECH_FILLER_PATTERN = /(?:我感觉|感觉|其实|就是|那个|这个|有点|一些|现在|今天|昨天|刚才|以及|然后|同时|顺便)/gu;
 const LOCAL_CONTEXT_ONLY_PATTERN = /(部署到Vercel之后|部署.*之后$|解决方案.*昨天.*拆解|昨天.*拆解|跑得挺好|跑得挺好的|连着.*模型)/u;
-const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复|自测|测试|拆成步骤|模型.*慢|牙医|保险|消息没回|没回|房间|作品集|论文材料|找工作|求职|体检报告|账单|厨房|方案|快递|护照|过期|水电费|没交|桌面|面试|简历|自我介绍|练|冰箱|垃圾|衣服|本地登录|整理速度|提交|客厅|杯子|水果|验证码|医院预约|论文摘要|申请材料|推荐信|作品集链接|洗衣液|物业|通知|发出去|发给|提醒|检查|记得|顺路|买|洗|晾|扔|拿|取|猫砂|猫疫苗|疫苗|房东|漏水|拍视频|快没)/iu;
+const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复|自测|测试|拆成步骤|模型.*慢|牙医|保险|消息没回|没回|房间|作品集|论文材料|找工作|求职|体检报告|账单|厨房|方案|快递|护照|过期|水电费|没交|桌面|面试|简历|自我介绍|练|冰箱|垃圾|衣服|本地登录|整理速度|提交|客厅|杯子|水果|验证码|医院预约|论文摘要|申请材料|推荐信|作品集链接|洗衣液|物业|通知|发出去|发给|提醒|检查|记得|顺路|买|洗|晾|扔|拿|取|猫砂|猫疫苗|疫苗|房东|漏水|拍视频|快没|身份证|不知道放哪|行李箱|阳台衣服)/iu;
 
 function toInputText(rawText) {
   return typeof rawText === "string" ? rawText : String(rawText ?? "");
@@ -577,6 +577,10 @@ function getLocalSemanticUnitRole(text) {
     return "context";
   }
 
+  if (/出门/u.test(cleaned) && !/准备|收拾|证件|身份证|行李/u.test(cleaned)) {
+    return "context";
+  }
+
   return LOCAL_TASK_SIGNAL_PATTERN.test(cleaned) ? "task" : "context";
 }
 
@@ -774,6 +778,18 @@ function createLocalSemanticTitle(units) {
     return "拍漏水视频给房东";
   }
 
+  if (/身份证/u.test(combined) && /不知道放哪|找|放哪/u.test(combined)) {
+    return "找身份证";
+  }
+
+  if (/行李箱/u.test(combined) && /收|收拾|还没/u.test(combined)) {
+    return "收拾行李箱";
+  }
+
+  if (/阳台衣服/u.test(combined) && /拿进来|收/u.test(combined)) {
+    return "收阳台衣服";
+  }
+
   if (/牙医/u.test(combined) && /约|预约|没约/u.test(combined)) {
     return "预约牙医";
   }
@@ -952,6 +968,9 @@ function createLocalSemanticNextStep(title, focusSteps) {
     买猫砂: "打开常用购物入口，先确认猫砂规格。",
     预约猫疫苗: "打开宠物医院联系方式，先问可预约时间。",
     拍漏水视频给房东: "打开相机，先拍一段洗手间漏水视频。",
+    找身份证: "先检查常放证件的抽屉或包。",
+    收拾行李箱: "打开行李箱，先放入证件和充电器。",
+    收阳台衣服: "先把阳台上最外侧的衣服拿进来。",
   };
 
   if (titleSteps[title]) {

@@ -227,6 +227,11 @@ const everydayNaturalLanguageCases = [
     rawText: "猫砂快没了，猫疫苗还没约，房东说洗手间漏水要拍视频给他。",
     titles: ["买猫砂", "预约猫疫苗", "拍漏水视频给房东"],
   },
+  {
+    name: "travel preparation and balcony laundry",
+    rawText: "我下周要出门，身份证不知道放哪了，行李箱也还没收，顺便想把阳台衣服拿进来。",
+    titles: ["找身份证", "收拾行李箱", "收阳台衣服"],
+  },
 ];
 
 for (const fixture of everydayNaturalLanguageCases) {
