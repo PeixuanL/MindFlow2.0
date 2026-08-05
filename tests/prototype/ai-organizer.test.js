@@ -171,6 +171,69 @@ test("createLocalSemanticResult splits local model slowness, login check, and po
   assert.equal(getOrganizedResultSaveBlocker(result, rawText), null);
 });
 
+const everydayNaturalLanguageCases = [
+  {
+    name: "family reminder, bill, and kitchen cleanup",
+    rawText: "我妈让我周五前把体检报告发给她，然后信用卡账单也没看，周末还想把厨房收拾一下。",
+    titles: ["发送体检报告", "查看信用卡账单", "收拾厨房"],
+  },
+  {
+    name: "work revision, message reply, and pickup",
+    rawText: "刚才老板说那个方案明天下午前要再改一版，我还没回小陈消息，快递也没去拿。",
+    titles: ["修改方案", "回复小陈消息", "取快递"],
+  },
+  {
+    name: "messy worry with documents, bill, and desktop cleanup",
+    rawText: "我现在脑子有点乱，护照快过期了，水电费好像也没交，电脑桌面乱七八糟。",
+    titles: ["更新护照", "缴水电费", "整理电脑桌面"],
+  },
+  {
+    name: "interview preparation as one broad goal",
+    rawText: "下周面试，但我简历还没改，作品集没整理，自我介绍也没练。",
+    titles: ["面试准备"],
+  },
+  {
+    name: "low-energy home chores",
+    rawText: "今天不太想动，但冰箱里的菜要处理一下，垃圾也该扔了，衣服还没晾。",
+    titles: ["处理冰箱食材", "扔垃圾", "晾衣服"],
+  },
+  {
+    name: "local product testing flow",
+    rawText: "我想先把 MindFlow 本地登录再测一遍，然后看一下整理速度，最后把改动提交。",
+    titles: ["自测 MindFlow 本地登录", "检查整理速度", "提交改动"],
+  },
+  {
+    name: "guest preparation",
+    rawText: "明天朋友要来，客厅得收一下，杯子也要洗，顺便买点水果。",
+    titles: ["收拾客厅", "洗杯子", "买水果"],
+  },
+  {
+    name: "anxious admin and school tasks",
+    rawText: "我有点焦虑，银行卡那个验证码没处理，医院预约也还没确认，论文摘要还差一版。",
+    titles: ["处理银行卡验证码", "确认医院预约", "修改论文摘要"],
+  },
+  {
+    name: "application materials and recommendation reminder",
+    rawText: "周五之前要把申请材料发出去，推荐信还没提醒老师，作品集链接也要检查。",
+    titles: ["发送申请材料", "提醒老师推荐信", "检查作品集链接"],
+  },
+  {
+    name: "errands on the way home",
+    rawText: "晚上回家前记得取快递，顺路买洗衣液，然后把物业群里的通知看一下。",
+    titles: ["取快递", "买洗衣液", "查看物业通知"],
+  },
+];
+
+for (const fixture of everydayNaturalLanguageCases) {
+  test(`createLocalSemanticResult handles everyday natural language: ${fixture.name}`, () => {
+    const result = createLocalSemanticResult(fixture.rawText);
+
+    assert.equal(result.status, "organized");
+    assert.deepEqual(result.items.map((item) => item.title), fixture.titles);
+    assert.equal(getOrganizedResultSaveBlocker(result, fixture.rawText), null);
+  });
+}
+
 test("createLocalSemanticResult keeps separate tasks joined by repeated need verbs", () => {
   const result = createLocalSemanticResult("得把登录的问题解决了，还得优化语音识别的技术方案");
 

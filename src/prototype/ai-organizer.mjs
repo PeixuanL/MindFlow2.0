@@ -15,7 +15,7 @@ const LOCAL_SEMANTIC_MAX_ITEMS = 5;
 const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
 const LOCAL_SPEECH_FILLER_PATTERN = /(?:我感觉|感觉|其实|就是|那个|这个|有点|一些|现在|今天|昨天|刚才|以及|然后|同时|顺便)/gu;
 const LOCAL_CONTEXT_ONLY_PATTERN = /(部署到Vercel之后|部署.*之后$|解决方案.*昨天.*拆解|昨天.*拆解|跑得挺好|跑得挺好的|连着.*模型)/u;
-const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复|自测|拆成步骤|模型.*慢|牙医|保险|消息没回|没回|房间|作品集|论文材料|找工作|求职)/iu;
+const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复|自测|测试|拆成步骤|模型.*慢|牙医|保险|消息没回|没回|房间|作品集|论文材料|找工作|求职|体检报告|账单|厨房|方案|快递|护照|过期|水电费|没交|桌面|面试|简历|自我介绍|练|冰箱|垃圾|衣服|本地登录|整理速度|提交|客厅|杯子|水果|验证码|医院预约|论文摘要|申请材料|推荐信|作品集链接|洗衣液|物业|通知|发出去|发给|提醒|检查|记得|顺路|买|洗|晾|扔|拿|取)/iu;
 
 function toInputText(rawText) {
   return typeof rawText === "string" ? rawText : String(rawText ?? "");
@@ -573,6 +573,10 @@ function getLocalSemanticUnitRole(text) {
     return "context";
   }
 
+  if (/朋友.*要来/u.test(cleaned)) {
+    return "context";
+  }
+
   return LOCAL_TASK_SIGNAL_PATTERN.test(cleaned) ? "task" : "context";
 }
 
@@ -605,6 +609,10 @@ function shouldGroupLocalUnits(units) {
     return true;
   }
 
+  if (/面试/u.test(combined) && /简历|作品集|自我介绍/u.test(combined)) {
+    return true;
+  }
+
   if (units.length <= 3 && units.every((unit) => /语义|拆解|理解|过滤|歧义|歧词/u.test(unit))) {
     return true;
   }
@@ -634,6 +642,10 @@ function createLocalSemanticTitle(units) {
     return "解决登录问题";
   }
 
+  if (/MindFlow/u.test(combined) && /本地登录/u.test(combined) && /测|测试|自测/u.test(combined)) {
+    return "自测 MindFlow 本地登录";
+  }
+
   if (/登录/u.test(combined) && /自测|测试|验证/u.test(combined)) {
     return "自测登录流程";
   }
@@ -644,6 +656,110 @@ function createLocalSemanticTitle(units) {
 
   if (/找工作|求职|投简历|投递/u.test(combined) && /简历|作品集|面试/u.test(combined)) {
     return "求职准备";
+  }
+
+  if (/面试/u.test(combined) && /简历|作品集|自我介绍/u.test(combined)) {
+    return "面试准备";
+  }
+
+  if (/体检报告/u.test(combined) && /发|发送|给/u.test(combined)) {
+    return "发送体检报告";
+  }
+
+  if (/信用卡|账单/u.test(combined) && /看|查看|确认/u.test(combined)) {
+    return "查看信用卡账单";
+  }
+
+  if (/厨房/u.test(combined) && /收拾|整理|收/u.test(combined)) {
+    return "收拾厨房";
+  }
+
+  if (/方案/u.test(combined) && /改|修改|再改/u.test(combined)) {
+    return "修改方案";
+  }
+
+  if (/小陈/u.test(combined) && /消息|回复|没回|回/u.test(combined)) {
+    return "回复小陈消息";
+  }
+
+  if (/快递/u.test(combined) && /取|拿|没去/u.test(combined)) {
+    return "取快递";
+  }
+
+  if (/护照/u.test(combined) && /过期|更新|快/u.test(combined)) {
+    return "更新护照";
+  }
+
+  if (/水电费/u.test(combined) && /交|没交|缴/u.test(combined)) {
+    return "缴水电费";
+  }
+
+  if (/电脑桌面|桌面/u.test(combined) && /乱|整理|收拾/u.test(combined)) {
+    return "整理电脑桌面";
+  }
+
+  if (/冰箱|菜|食材/u.test(combined) && /处理/u.test(combined)) {
+    return "处理冰箱食材";
+  }
+
+  if (/垃圾/u.test(combined) && /扔|倒|该/u.test(combined)) {
+    return "扔垃圾";
+  }
+
+  if (/衣服/u.test(combined) && /晾|没晾/u.test(combined)) {
+    return "晾衣服";
+  }
+
+  if (/整理速度/u.test(combined) && /看|检查/u.test(combined)) {
+    return "检查整理速度";
+  }
+
+  if (/改动/u.test(combined) && /提交/u.test(combined)) {
+    return "提交改动";
+  }
+
+  if (/客厅/u.test(combined) && /收|收拾|整理/u.test(combined)) {
+    return "收拾客厅";
+  }
+
+  if (/杯子/u.test(combined) && /洗/u.test(combined)) {
+    return "洗杯子";
+  }
+
+  if (/水果/u.test(combined) && /买/u.test(combined)) {
+    return "买水果";
+  }
+
+  if (/银行卡/u.test(combined) && /验证码/u.test(combined)) {
+    return "处理银行卡验证码";
+  }
+
+  if (/医院预约/u.test(combined) && /确认|还没/u.test(combined)) {
+    return "确认医院预约";
+  }
+
+  if (/论文摘要/u.test(combined) && /差|改|修改/u.test(combined)) {
+    return "修改论文摘要";
+  }
+
+  if (/申请材料/u.test(combined) && /发|发送|发出去/u.test(combined)) {
+    return "发送申请材料";
+  }
+
+  if (/推荐信/u.test(combined) && /提醒|老师/u.test(combined)) {
+    return "提醒老师推荐信";
+  }
+
+  if (/作品集链接/u.test(combined) && /检查|确认/u.test(combined)) {
+    return "检查作品集链接";
+  }
+
+  if (/洗衣液/u.test(combined) && /买/u.test(combined)) {
+    return "买洗衣液";
+  }
+
+  if (/物业|通知/u.test(combined) && /看|查看/u.test(combined)) {
+    return "查看物业通知";
   }
 
   if (/牙医/u.test(combined) && /约|预约|没约/u.test(combined)) {
@@ -716,6 +832,14 @@ function createLocalSemanticFocusSteps(title, units) {
     return ["更新简历", "整理作品集", "准备面试素材"];
   }
 
+  if (title === "面试准备") {
+    return ["修改简历", "整理作品集", "练一遍自我介绍"];
+  }
+
+  if (title === "自测 MindFlow 本地登录") {
+    return ["打开本地登录页", "注册一个本机账号", "退出后重新登录"];
+  }
+
   if (title === "预约牙医") {
     return ["打开通讯录", "找到诊所电话", "问一个可预约时间"];
   }
@@ -786,6 +910,33 @@ function createLocalSemanticNextStep(title, focusSteps) {
     整理作品集: "打开作品集文件夹，先看有哪些项目。",
     排查本地模型整理耗时: "复现一次整理，先记录等待秒数。",
     自测登录流程: "打开登录页，先注册一个本机账号。",
+    "自测 MindFlow 本地登录": "打开本地页面，先注册一个测试账号。",
+    发送体检报告: "找到体检报告文件，先确认能打开。",
+    查看信用卡账单: "打开信用卡账单，先看本期金额。",
+    收拾厨房: "先清空厨房台面的一小块。",
+    修改方案: "打开方案文件，先标出要改的一处。",
+    回复小陈消息: "打开和小陈的聊天，先看最后一句。",
+    取快递: "打开快递信息，先确认取件码。",
+    更新护照: "找到护照有效期，先确认过期日期。",
+    缴水电费: "打开缴费入口，先看待缴金额。",
+    整理电脑桌面: "先把桌面文件按项目归一类。",
+    面试准备: "打开简历，先改最近一个项目描述。",
+    处理冰箱食材: "打开冰箱，先挑出今天要处理的菜。",
+    扔垃圾: "先把垃圾袋扎好放到门口。",
+    晾衣服: "先把洗好的衣服拿出来。",
+    检查整理速度: "打开本地页面，先记录一次整理耗时。",
+    提交改动: "先看一眼当前改动文件。",
+    收拾客厅: "先把客厅桌面清出一小块。",
+    洗杯子: "先把杯子收到水槽旁。",
+    买水果: "先写下要买的水果种类。",
+    处理银行卡验证码: "打开银行消息，先确认验证码用途。",
+    确认医院预约: "打开医院预约记录，先看时间。",
+    修改论文摘要: "打开论文摘要，先改第一段。",
+    发送申请材料: "打开申请材料文件夹，先确认文件齐不齐。",
+    提醒老师推荐信: "打开和老师的聊天，先写一句提醒草稿。",
+    检查作品集链接: "打开作品集链接，先确认页面能访问。",
+    买洗衣液: "先记下常用洗衣液品牌或规格。",
+    查看物业通知: "打开物业群，先看最新通知。",
   };
 
   if (titleSteps[title]) {
