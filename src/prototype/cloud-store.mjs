@@ -111,7 +111,20 @@ function updateSessionUser(state, user) {
 export function createMindFlowCloudStore(options = {}) {
   const localStore = createMindFlowStore(options);
   const cloudClient = options.cloudClient ?? createSupabaseRestClient(options);
+  const allowLocalAuthFallback = options.allowLocalAuthFallback === true;
   let syncPromise = Promise.resolve();
+
+  function hasCloudSession() {
+    return Boolean(cloudClient.getSession?.());
+  }
+
+  function shouldUseLocalOnlySession() {
+    return allowLocalAuthFallback && !hasCloudSession();
+  }
+
+  function canFallbackToLocalAuth(error) {
+    return allowLocalAuthFallback && error?.message === "cloud_config_unavailable";
+  }
 
   async function loadCloudState(user, credentials) {
     const remoteState = await cloudClient.fetchUserState(user.id);
@@ -130,6 +143,11 @@ export function createMindFlowCloudStore(options = {}) {
   function scheduleSync() {
     const state = localStore.exportState();
     if (!state.sessionUserId) {
+      return syncPromise;
+    }
+
+    if (shouldUseLocalOnlySession()) {
+      syncPromise = Promise.resolve();
       return syncPromise;
     }
 
@@ -164,11 +182,21 @@ export function createMindFlowCloudStore(options = {}) {
         throw new Error("password_mismatch");
       }
 
-      const payload = await cloudClient.signUp({
-        email,
-        password,
-        displayName: credentials?.displayName || toDisplayAccount(accountName, email),
-      });
+      let payload;
+      try {
+        payload = await cloudClient.signUp({
+          email,
+          password,
+          displayName: credentials?.displayName || toDisplayAccount(accountName, email),
+        });
+      } catch (error) {
+        if (canFallbackToLocalAuth(error)) {
+          return localStore.register(credentials);
+        }
+
+        throw error;
+      }
+
       const session = payload?.session;
       if (!session?.user) {
         throw new Error("email_confirmation_required");
@@ -195,7 +223,17 @@ export function createMindFlowCloudStore(options = {}) {
         throw new Error("empty_password");
       }
 
-      const session = await cloudClient.signIn({ email, password });
+      let session;
+      try {
+        session = await cloudClient.signIn({ email, password });
+      } catch (error) {
+        if (canFallbackToLocalAuth(error)) {
+          return localStore.login(credentials);
+        }
+
+        throw error;
+      }
+
       const user = createCloudUser(session.user, {
         ...credentials,
         accountName,
@@ -205,11 +243,13 @@ export function createMindFlowCloudStore(options = {}) {
 
     async logout() {
       localStore.logout();
-      await cloudClient.signOut();
+      if (hasCloudSession()) {
+        await cloudClient.signOut();
+      }
     },
 
     getSession() {
-      if (!cloudClient.getSession()) {
+      if (!hasCloudSession() && !allowLocalAuthFallback) {
         return null;
       }
 

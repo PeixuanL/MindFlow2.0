@@ -38,6 +38,49 @@ test("cloud store ignores legacy local sessions without a cloud auth session", (
   assert.equal(store.getSession(), null);
 });
 
+test("cloud store can use local auth fallback when cloud config is unavailable", async () => {
+  const storage = createMemoryStorage();
+  const store = createMindFlowCloudStore({
+    storage,
+    allowLocalAuthFallback: true,
+    cloudClient: {
+      getSession: () => null,
+      signUp: async () => {
+        throw new Error("cloud_config_unavailable");
+      },
+      signIn: async () => {
+        throw new Error("cloud_config_unavailable");
+      },
+      saveUserState: async () => {
+        throw new Error("should_not_sync_local_only_session");
+      },
+    },
+  });
+
+  const registered = await store.register({
+    accountName: "local-user",
+    password: "password-123",
+    confirmPassword: "password-123",
+    displayName: "Local User",
+  });
+
+  assert.equal(registered.accountName, "local-user");
+  assert.equal(store.getSession().accountName, "local-user");
+  await store.logout();
+  assert.equal(store.getSession(), null);
+
+  const loggedIn = await store.login({
+    accountName: "local-user",
+    password: "password-123",
+  });
+  const item = store.addItem(loggedIn.id, { title: "本地保存一条" });
+  await store.flush();
+
+  assert.equal(loggedIn.id, registered.id);
+  assert.equal(item.title, "本地保存一条");
+  assert.equal(store.getItemsByStatus(loggedIn.id, "active").length, 1);
+});
+
 test("cloud store loads a remote state after Supabase login", async () => {
   const storage = createMemoryStorage();
   const savedStates = [];

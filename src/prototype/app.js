@@ -6,7 +6,11 @@ import { createMindFlowCloudStore } from "./cloud-store.mjs";
 import { priorityLabels } from "./store.mjs";
 import { createVoiceInputController } from "./voice-input.mjs";
 
-const store = createMindFlowCloudStore();
+const isLocalPrototypeHost =
+  window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
+const store = createMindFlowCloudStore({
+  allowLocalAuthFallback: isLocalPrototypeHost,
+});
 const appShell = document.querySelector(".app-shell");
 const views = {
   login: document.querySelector("#login-view"),
@@ -33,6 +37,7 @@ const displayNameInput = document.querySelector("#display-name-input");
 const registerOnlyFields = document.querySelector("#register-only-fields");
 const loginButton = document.querySelector("#login-button");
 const loginError = document.querySelector("#login-error");
+const loginSupportingCopy = document.querySelector(".login-hero .supporting-copy");
 
 const input = document.querySelector("#thought-input");
 const inputCount = document.querySelector("#thought-input-count");
@@ -120,6 +125,10 @@ const itemVisibleLimits = {
   parking: ITEM_PAGE_SIZE,
   done: ITEM_PAGE_SIZE,
 };
+
+if (isLocalPrototypeHost && loginSupportingCopy) {
+  loginSupportingCopy.textContent = "注册一个本机账号，数据只保存在这台电脑当前浏览器里。";
+}
 
 async function serverAiClient({ rawText }) {
   const response = await fetch("/api/organize", {
