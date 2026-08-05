@@ -11,6 +11,7 @@ const ollamaEndpoint = process.env.OLLAMA_ENDPOINT || "http://127.0.0.1:11434";
 const ollamaModel = process.env.OLLAMA_MODEL || "qwen2.5:3b";
 const supabaseUrl = process.env.SUPABASE_URL || "";
 const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || "";
+const MAX_RAW_TEXT_LENGTH = 500;
 const ollamaClient = createOllamaClient({
   endpoint: ollamaEndpoint,
   model: ollamaModel,
@@ -138,12 +139,27 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === "GET" && request.url === "/api/organize") {
+    sendJson(response, 200, {
+      provider: "ollama",
+      endpoint: ollamaEndpoint,
+      model: ollamaModel,
+      localOnly: true,
+    });
+    return;
+  }
+
   if (request.method === "POST" && request.url === "/api/organize") {
     try {
       const body = await readJsonBody(request);
       const rawText = typeof body.rawText === "string" ? body.rawText : "";
       if (!rawText.trim()) {
         sendJson(response, 400, { error: "empty_input" });
+        return;
+      }
+
+      if (rawText.length > MAX_RAW_TEXT_LENGTH) {
+        sendJson(response, 400, { error: "input_too_long" });
         return;
       }
 

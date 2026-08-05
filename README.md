@@ -27,6 +27,31 @@ The project has been initialized. The technical stack and first implementation s
 
 The deployed `/api/organize` route can call OpenRouter when `OPENROUTER_API_KEY` is configured. Without that key, it stays local and does not send input to an external model.
 
+## Local Ollama Organizing
+
+For this-computer-only use, run MindFlow against the local Ollama service instead of cloud AI:
+
+```bash
+ollama serve
+ollama pull qwen2.5:3b
+npm run dev
+```
+
+Then open:
+
+```text
+http://127.0.0.1:18811
+```
+
+The local prototype uses:
+
+```text
+OLLAMA_ENDPOINT=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:3b
+```
+
+The local `/api/organize` route only accepts a local Ollama endpoint, keeps input on this computer, and exposes a GET diagnostic endpoint so you can confirm the active model.
+
 Privacy and cost guardrails:
 
 - API keys stay in server-side environment variables only.
