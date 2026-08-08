@@ -8,14 +8,14 @@ const DEFAULT_META = {
   safetyLevel: "normal",
 };
 const PRESSURE_LANGUAGE_PATTERN = /必须|赶紧|立刻|拖太久|否则|应该早就/;
-const TITLE_FILLER_PATTERN = /^(我想|我觉得|我需要|我得|我要|想要|想|然后|同时|顺便|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)+/u;
-const DISPLAY_FILLER_PATTERN = /(?:我感觉|我觉得|我想|我需要|我得|我要|想要|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)/gu;
+const TITLE_FILLER_PATTERN = /^(我想|我觉得|我需要|我得|我要|得尽快|得赶紧|得|要尽快|尽快|赶紧|赶快|想要|想|然后|同时|顺便|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)+/u;
+const DISPLAY_FILLER_PATTERN = /(?:我感觉|我觉得|我想|我需要|我得|我要|得尽快|得赶紧|要尽快|尽快|赶紧|赶快|想要|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)/gu;
 const TITLE_TIME_PATTERN = /(今天|今晚|明天|后天|大后天|几小时后|几个小时后|[一二两三四五六七八九十0-9]+个?小时后|[一二两三四五六七八九十0-9]+天后|下周[一二三四五六日天]?|下个月|上午|中午|下午|晚上|早上|凌晨|今晚|明晚)/gu;
 const LOCAL_SEMANTIC_MAX_ITEMS = 5;
 const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
 const LOCAL_SPEECH_FILLER_PATTERN = /(?:我感觉|感觉|其实|就是|那个|这个|有点|一些|现在|今天|昨天|刚才|以及|然后|同时|顺便)/gu;
 const LOCAL_CONTEXT_ONLY_PATTERN = /(部署到Vercel之后|部署.*之后$|解决方案.*昨天.*拆解|昨天.*拆解|跑得挺好|跑得挺好的|连着.*模型)/u;
-const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|约|回复|自测|测试|拆成步骤|模型.*慢|牙医|保险|消息没回|没回|房间|作品集|论文材料|找工作|求职|体检报告|账单|厨房|方案|快递|护照|过期|水电费|没交|桌面|面试|简历|自我介绍|练|冰箱|垃圾|衣服|本地登录|整理速度|提交|客厅|杯子|水果|验证码|医院预约|论文摘要|申请材料|推荐信|作品集链接|洗衣液|物业|通知|发出去|发给|提醒|检查|记得|顺路|买|洗|晾|扔|拿|取|猫砂|猫疫苗|疫苗|房东|漏水|拍视频|快没|身份证|不知道放哪|行李箱|阳台衣服)/iu;
+const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|制作|宣传|文案|视频|小红书|增加|多语言|英文|约|回复|自测|测试|拆成步骤|模型.*慢|牙医|保险|消息没回|没回|房间|作品集|论文材料|找工作|求职|领英|LinkedIn|linkedin|connect|人脉|联系人|找人|体检报告|账单|厨房|方案|快递|护照|过期|水电费|没交|桌面|面试|简历|自我介绍|练|冰箱|垃圾|衣服|本地登录|整理速度|提交|客厅|杯子|水果|验证码|医院预约|论文摘要|申请材料|推荐信|作品集链接|洗衣液|物业|通知|发出去|发给|提醒|检查|记得|顺路|买|洗|晾|扔|拿|取|猫砂|猫疫苗|疫苗|房东|漏水|拍视频|快没|身份证|不知道放哪|行李箱|阳台衣服)/iu;
 
 function toInputText(rawText) {
   return typeof rawText === "string" ? rawText : String(rawText ?? "");
@@ -595,7 +595,7 @@ function splitLocalSemanticUnits(rawText) {
   }
 
   return inputText
-    .replace(/(?:然后|同时|顺便|以及)(?=\S)/gu, "\n")
+    .replace(/(?:然后|之后|随后|接着|同时|顺便|以及)(?=\S)/gu, "\n")
     .split(/[\n。；;]+|[，,](?=\S)/u)
     .map(cleanLocalUnit)
     .filter(Boolean)
@@ -630,7 +630,7 @@ function shouldGroupLocalUnits(units) {
 
 function extractKeywordTitle(text) {
   const cleaned = cleanLocalUnit(text)
-    .replace(/(好像|确实|现在|需要|能够|可以|应该|不能|没有|并没有|真正的|进行|生效|保存|线上|完成|改动|修改|帮我|请你|解决|问题|这件事情|这条|那个事)/gu, "")
+    .replace(/(好像|确实|现在|需要|能够|可以|应该|不能|没有|并没有|真正的|进行|生效|保存|线上|完成|改动|修改|帮我|请你|解决|问题|这件事情|这条|那个事|得尽快|得赶紧|要尽快|尽快|赶紧|赶快)/gu, "")
     .replace(/[的了着吧吗呢啊]/gu, "")
     .replace(/\s+/gu, " ")
     .replace(/^[，,。.\s、；;]+|[，,。.\s、；;]+$/gu, "")
@@ -648,6 +648,14 @@ function createLocalSemanticTitle(units) {
 
   if (/MindFlow/u.test(combined) && /本地登录/u.test(combined) && /测|测试|自测/u.test(combined)) {
     return "自测 MindFlow 本地登录";
+  }
+
+  if (/MindFlow/u.test(combined) && /宣传|小红书|视频|文案/u.test(combined)) {
+    return "制作 MindFlow 宣传内容";
+  }
+
+  if (/MindFlow/u.test(combined) && /英文|多语言|i18n|国际化/u.test(combined) && /增加|添加|支持|加/u.test(combined)) {
+    return "增加 MindFlow 英文多语言";
   }
 
   if (/登录/u.test(combined) && /自测|测试|验证/u.test(combined)) {
@@ -794,6 +802,14 @@ function createLocalSemanticTitle(units) {
     return "预约牙医";
   }
 
+  if (/领英|LinkedIn|linkedin/u.test(combined) && /更新|改|完善|补|优化|尽快|得/u.test(combined)) {
+    return "更新领英";
+  }
+
+  if (/connect|人脉|联系人|找人/u.test(combined) && /找|联系|加|connect/u.test(combined)) {
+    return "联系目标人脉";
+  }
+
   if (/房间/u.test(combined) && /整理|收拾/u.test(combined)) {
     return "整理房间";
   }
@@ -841,8 +857,25 @@ function createLocalSemanticTitle(units) {
   return title.length > 24 ? `${title.slice(0, 24)}...` : title;
 }
 
-function createLocalSemanticFocusSteps(title, units) {
+function createLocalSemanticFocusSteps(title, units, options = {}) {
   const combined = units.join("，");
+  const wantsFinerSteps = options.strategy === "finer" || options.strategy === "missing";
+
+  if (wantsFinerSteps) {
+    const detailedStepsByTitle = {
+      预约牙医: ["打开地图或通讯录搜索诊所", "确认营业时间和联系电话", "打电话问最近可预约时间", "把预约时间记下来"],
+      更新领英: ["打开领英个人主页", "进入个人资料编辑", "补最新经历或项目", "保存后检查展示效果"],
+      联系目标人脉: ["列出一个想联系的人", "打开领英搜索姓名", "写一句简短邀请", "发送后记录对方状态"],
+      "制作 MindFlow 宣传内容": ["确定视频或小红书文案形式", "列出 3 个 MindFlow 卖点", "写第一版宣传脚本或文案", "检查语气是否像真实用户场景"],
+      "增加 MindFlow 英文多语言": ["列出需要英文文案的页面", "补英文文案字段", "加语言切换入口", "切到英文检查首页"],
+      整理房间: ["先清空桌面一小块", "把地面杂物分成留/扔两类", "丢掉一袋不用的东西", "把留下的东西放回固定位置"],
+      整理作品集: ["打开作品集文件夹", "列出要展示的项目", "挑一个项目补背景和职责", "检查链接是否能打开"],
+    };
+
+    if (detailedStepsByTitle[title]) {
+      return detailedStepsByTitle[title];
+    }
+  }
 
   if (title === "解决登录问题" || (/登录/u.test(combined) && /问题|解决|修|不生效|失败|异常|出错|bug/u.test(combined))) {
     return ["复现登录问题", "定位失败环节", "验证登录流程"];
@@ -868,8 +901,24 @@ function createLocalSemanticFocusSteps(title, units) {
     return ["打开本地登录页", "注册一个本机账号", "退出后重新登录"];
   }
 
+  if (title === "制作 MindFlow 宣传内容") {
+    return ["确定用视频还是小红书文案", "列出 3 个卖点", "先写一个开头"];
+  }
+
+  if (title === "增加 MindFlow 英文多语言") {
+    return ["列出需要翻译的页面", "补首页英文文案", "切到英文检查显示"];
+  }
+
   if (title === "预约牙医") {
     return ["打开通讯录", "找到诊所电话", "问一个可预约时间"];
+  }
+
+  if (title === "更新领英") {
+    return ["打开领英个人主页", "找到需要更新的经历", "保存后预览主页"];
+  }
+
+  if (title === "联系目标人脉") {
+    return ["列出想联系的人", "打开领英搜索姓名", "发送一条简短邀请"];
   }
 
   if (title === "整理房间") {
@@ -931,6 +980,10 @@ function createLocalSemanticNextStep(title, focusSteps) {
 
   const titleSteps = {
     预约牙医: "打开通讯录，找到诊所电话。",
+    更新领英: "打开领英个人主页，先定位要更新的经历。",
+    联系目标人脉: "先列出一个想联系的人。",
+    "制作 MindFlow 宣传内容": "先确定这次用宣传视频还是小红书文案。",
+    "增加 MindFlow 英文多语言": "先列出首页需要翻译的文案。",
     整理房间: "先清空桌面上最明显的一小块。",
     查看保险事项: "先找到保险相关的那条消息。",
     回复小王消息: "打开和小王的聊天，先看最后一句。",
@@ -981,12 +1034,80 @@ function createLocalSemanticNextStep(title, focusSteps) {
   return `${firstStep}，先完成一处可验证改动。`;
 }
 
+function sentenceFromStep(step) {
+  const text = String(step ?? "").trim().replace(/[。.!！]+$/u, "");
+  return text ? `${text}。` : "";
+}
+
+function uniqueLocalSteps(steps) {
+  const seen = new Set();
+
+  return steps
+    .map((step) => String(step ?? "").trim())
+    .filter(Boolean)
+    .filter((step) => {
+      const key = step.replace(/\s+/gu, "");
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+}
+
+function applyLocalResplitStrategy(item, strategy) {
+  if (strategy === "sequence") {
+    return {
+      ...item,
+      reason: `按你写下的顺序拆出「${item.mentions[0]}」。`,
+      nextStep: sentenceFromStep(item.focusSteps[0]) || item.nextStep,
+    };
+  }
+
+  if (strategy === "finer") {
+    const hasDetailedSteps = item.focusSteps.length >= 4;
+    const focusSteps = hasDetailedSteps
+      ? item.focusSteps
+      : uniqueLocalSteps([
+          item.focusSteps[0],
+          `确认「${item.title}」需要的入口或材料`,
+          ...item.focusSteps.slice(1),
+          `完成后更新「${item.title}」状态`,
+        ]).slice(0, 5);
+
+    return {
+      ...item,
+      reason: `这版把「${item.title}」拆得更细。`,
+      nextStep: sentenceFromStep(focusSteps[0]) || item.nextStep,
+      focusSteps,
+    };
+  }
+
+  if (strategy === "missing") {
+    const focusSteps = uniqueLocalSteps([
+      `检查「${item.title}」还缺时间、联系人或材料`,
+      ...item.focusSteps.slice(0, 2),
+      `把遗漏补进「${item.title}」详情`,
+    ]).slice(0, 5);
+
+    return {
+      ...item,
+      reason: `这版先帮你查「${item.title}」有没有遗漏。`,
+      nextStep: `检查「${item.title}」还缺时间、联系人或材料。`,
+      focusSteps,
+    };
+  }
+
+  return item;
+}
+
 function isLocalBigProject(title, units) {
   const combined = units.join("，");
   return title === "求职准备" || /大项目|MVP|作品集|找工作|求职|项目/u.test(combined) && /拆|准备|整理|完成|没弄|好乱/u.test(combined);
 }
 
-function createLocalSemanticResultFromUnits(rawText, units, modelBehavior) {
+function createLocalSemanticResultFromUnits(rawText, units, modelBehavior, options = {}) {
   const semanticUnits = units.map((text, index) => ({
     id: `u${index + 1}`,
     text,
@@ -1019,17 +1140,18 @@ function createLocalSemanticResultFromUnits(rawText, units, modelBehavior) {
     };
   }
 
-  const itemUnits = shouldGroupLocalUnits(unitsForItems.map((unit) => unit.text))
+  const shouldForceSplit = options.strategy === "sequence" || options.strategy === "finer" || options.strategy === "missing";
+  const itemUnits = !shouldForceSplit && shouldGroupLocalUnits(unitsForItems.map((unit) => unit.text))
     ? [unitsForItems]
     : unitsForItems.slice(0, LOCAL_SEMANTIC_MAX_ITEMS).map((unit) => [unit]);
 
   const items = itemUnits.map((groupUnits, index) => {
     const mentions = groupUnits.map((unit) => unit.text);
     const title = createLocalSemanticTitle(mentions);
-    const focusSteps = createLocalSemanticFocusSteps(title, mentions);
+    const focusSteps = createLocalSemanticFocusSteps(title, mentions, options);
     const isBigEvent = isLocalBigProject(title, mentions);
 
-    return {
+    return applyLocalResplitStrategy({
       id: `item_${index + 1}`,
       title,
       sourceUnitIds: groupUnits.map((unit) => unit.id),
@@ -1051,7 +1173,7 @@ function createLocalSemanticResultFromUnits(rawText, units, modelBehavior) {
       remindDaysBefore: null,
       confidence: 0.65,
       ambiguities: [],
-    };
+    }, options.strategy);
   });
 
   const normalized = normalizeAiResult({
@@ -1080,6 +1202,7 @@ function createLocalSemanticResultFromUnits(rawText, units, modelBehavior) {
     meta: {
       modelBehavior,
       promptStrategy: LOCAL_PROMPT_STRATEGY,
+      ...(options.strategy ? { resplitStrategy: options.strategy } : {}),
     },
   };
 }
@@ -1185,7 +1308,7 @@ const PLANNING_GROUPS = {
   },
 };
 
-function createLocalSemanticFastResult(rawText) {
+function createLocalSemanticFastResult(rawText, options = {}) {
   const units = splitPlanningUnits(rawText);
   const semanticUnits = units.map((text, index) => ({
     id: `u${index + 1}`,
@@ -1210,7 +1333,7 @@ function createLocalSemanticFastResult(rawText) {
       const groupUnits = groupMap.get(key);
       const isHigh = groupUnits.some((unit) => /\bP0\b/u.test(unit.text));
 
-      return {
+      return applyLocalResplitStrategy({
         id: `item_${index + 1}`,
         title: config.title,
         parentGoal: config.parentGoal,
@@ -1233,7 +1356,7 @@ function createLocalSemanticFastResult(rawText) {
         remindDaysBefore: null,
         confidence: 0.8,
         ambiguities: [],
-      };
+      }, options.strategy);
     });
 
   const normalized = normalizeAiResult({
@@ -1262,11 +1385,12 @@ function createLocalSemanticFastResult(rawText) {
     meta: {
       modelBehavior: "local_semantic_fast",
       promptStrategy: LOCAL_PROMPT_STRATEGY,
+      ...(options.strategy ? { resplitStrategy: options.strategy } : {}),
     },
   };
 }
 
-export function createLocalSemanticResult(rawText) {
+export function createLocalSemanticResult(rawText, options = {}) {
   const units = splitLocalSemanticUnits(rawText);
 
   if (units.length === 0) {
@@ -1283,10 +1407,10 @@ export function createLocalSemanticResult(rawText) {
   }
 
   if (shouldUseLocalSemanticFast(rawText)) {
-    return createLocalSemanticFastResult(rawText);
+    return createLocalSemanticFastResult(rawText, options);
   }
 
-  return createLocalSemanticResultFromUnits(rawText, units, "local_semantic");
+  return createLocalSemanticResultFromUnits(rawText, units, "local_semantic", options);
 }
 
 function shouldUseLocalSemanticFast(rawText) {
@@ -1477,14 +1601,17 @@ export async function organizeThoughtsWithAi(rawText, options = {}) {
   }
 
   if (options.preferLocalFast === true && shouldUseLocalSemanticFast(inputText)) {
-    return createLocalSemanticFastResult(inputText);
+    return createLocalSemanticFastResult(inputText, options);
   }
 
   let aiOutput;
   let parsedResult;
 
   try {
-    aiOutput = await aiClient({ rawText: inputText });
+    aiOutput = await aiClient({
+      rawText: inputText,
+      ...(options.strategy ? { strategy: options.strategy } : {}),
+    });
   } catch {
     return fallback(inputText, fallbackOrganizer, "ai_failure");
   }

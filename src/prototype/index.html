@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MindFlow2.0 Prototype</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260808-fit-viewport-2" />
   </head>
   <body>
     <main class="app-shell is-login-shell">
@@ -55,7 +55,7 @@
           <div id="top-actions" class="top-actions is-hidden">
             <button class="text-button" type="button" data-nav="home">首页</button>
             <button class="text-button" type="button" data-nav="items">全部想法</button>
-            <button id="logout-button" class="icon-button" type="button" aria-label="退出"><span></span></button>
+            <button id="logout-button" class="logout-button" type="button" aria-label="退出登录">退出</button>
           </div>
         </header>
 
@@ -65,8 +65,7 @@
               <div class="brand-mark" aria-hidden="true">M</div>
               <div class="brand">MindFlow</div>
             </div>
-            <h1 id="login-title">先有一个自己的角落</h1>
-            <p class="supporting-copy">注册一个云端账号，之后可以在其他设备登录同步。</p>
+            <h1 id="login-title">登录 MindFlow</h1>
           </section>
 
           <form id="login-form" class="capture-section auth-form">
@@ -86,6 +85,7 @@
             </div>
             <p id="login-error" class="field-error" aria-live="polite"></p>
             <button id="login-button" class="primary-button" type="submit">登录 MindFlow</button>
+            <button id="demo-button" class="secondary-button auth-demo-button" type="button">Demo 体验</button>
           </form>
         </section>
 
@@ -141,14 +141,14 @@
 
             <section id="candidate-section" class="suggestion-section is-hidden" aria-live="polite" aria-labelledby="candidate-title">
               <div class="recommendation-meta">
-                <p class="eyebrow">停车区里有一件</p>
+                <p class="eyebrow">先放着里有一件</p>
                 <span>可选</span>
               </div>
               <h2 id="candidate-title">看一下保险那件事</h2>
               <p id="candidate-reason" class="reason">先安全放着。</p>
               <div class="action-row">
                 <button id="keep-parked-button" class="secondary-button" type="button">继续放着</button>
-                <button id="restore-candidate-button" class="primary-action-button" type="button">移到 Active</button>
+                <button id="restore-candidate-button" class="primary-action-button" type="button">移到现在看</button>
               </div>
             </section>
 
@@ -171,7 +171,7 @@
             <section id="done-section" class="suggestion-section is-hidden" aria-live="polite">
               <div class="recommendation-meta">
                 <p class="eyebrow">这件完成了</p>
-                <span>Done</span>
+                <span>已完成</span>
               </div>
               <h2>先放轻一点</h2>
               <div class="action-row">
@@ -186,14 +186,24 @@
             </section>
           </div>
 
-          <aside id="home-sidebar" class="home-sidebar" aria-label="首页想法概览">
+          <aside id="home-sidebar" class="home-sidebar" aria-label="首页优先处理概览">
             <section class="sidebar-panel" aria-labelledby="home-thoughts-title">
               <div class="panel-header">
-                <h2 id="home-thoughts-title">全部想法</h2>
-                <button id="view-all-thoughts-button" class="panel-link" type="button" data-nav="items">查看全部想法 ›</button>
+                <h2 id="home-thoughts-title">优先处理</h2>
+                <button id="view-all-thoughts-button" class="panel-link" type="button">查看全部 ›</button>
               </div>
               <div id="home-thoughts-list" class="home-row-list"></div>
-              <p id="home-thoughts-count" class="panel-footnote">共 0 条想法</p>
+              <p id="home-thoughts-count" class="panel-footnote">已显示 0 条优先处理</p>
+              <div id="resplit-panel" class="resplit-panel is-hidden" aria-label="重新拆分方式">
+                <p>换一种拆法</p>
+                <div class="resplit-actions">
+                  <button class="secondary-button small-button" type="button" data-resplit-strategy="sequence">按顺序拆</button>
+                  <button class="secondary-button small-button" type="button" data-resplit-strategy="finer">拆得更细</button>
+                  <button class="secondary-button small-button" type="button" data-resplit-strategy="missing">查漏补缺</button>
+                </div>
+                <button id="cancel-resplit-button" class="panel-link muted-link" type="button">取消</button>
+              </div>
+              <button id="undo-recent-organize-button" class="panel-link muted-link is-hidden" type="button">撤销本次整理</button>
             </section>
 
             <section class="sidebar-panel compact-panel" aria-labelledby="home-completed-title">
@@ -210,7 +220,7 @@
         <section id="items-view" class="view-section is-hidden" aria-labelledby="items-title">
           <section class="hero-section compact-hero">
             <h1 id="items-title">这些都在</h1>
-            <p class="supporting-copy">Active / Parking / Done 会跟着你的操作更新。</p>
+            <p class="supporting-copy">想法还在，你可以慢慢处理。</p>
           </section>
 
         <form id="manual-add-form" class="inline-add-form">
@@ -221,23 +231,23 @@
         </form>
 
         <div id="item-tabs" class="item-tabs" role="tablist" aria-label="想法状态">
-          <button id="active-tab" class="tab-button is-active" type="button" role="tab" aria-controls="active-panel" aria-selected="true" data-tab="active">Active</button>
-          <button id="parking-tab" class="tab-button" type="button" role="tab" aria-controls="parking-panel" aria-selected="false" data-tab="parking">Parking</button>
-          <button id="done-tab" class="tab-button" type="button" role="tab" aria-controls="done-panel" aria-selected="false" data-tab="done">Done</button>
+          <button id="active-tab" class="tab-button is-active" type="button" role="tab" aria-controls="active-panel" aria-selected="true" data-tab="active">现在看</button>
+          <button id="parking-tab" class="tab-button" type="button" role="tab" aria-controls="parking-panel" aria-selected="false" data-tab="parking">先放着</button>
+          <button id="done-tab" class="tab-button" type="button" role="tab" aria-controls="done-panel" aria-selected="false" data-tab="done">已完成</button>
         </div>
 
         <section id="active-panel" class="list-section" role="tabpanel" aria-labelledby="active-tab">
-          <h2 id="active-title">Active</h2>
+          <h2 id="active-title">现在看</h2>
           <div id="active-list" class="item-list"></div>
         </section>
 
         <section id="parking-panel" class="list-section is-hidden" role="tabpanel" aria-labelledby="parking-tab">
-          <h2 id="parking-title">Parking</h2>
+          <h2 id="parking-title">先放着</h2>
           <div id="parking-list" class="item-list"></div>
         </section>
 
         <section id="done-panel" class="list-section is-hidden" role="tabpanel" aria-labelledby="done-tab">
-          <h2 id="done-title">Done</h2>
+          <h2 id="done-title">已完成</h2>
           <div id="done-list" class="item-list"></div>
         </section>
 
@@ -266,9 +276,9 @@
 
           <label class="capture-title" for="detail-status-input">状态</label>
           <select id="detail-status-input" class="text-input">
-            <option value="active">Active</option>
-            <option value="parking">Parking</option>
-            <option value="done">Done</option>
+            <option value="active">现在看</option>
+            <option value="parking">先放着</option>
+            <option value="done">已完成</option>
           </select>
 
           <label class="capture-title" for="detail-due-at-input">截止时间</label>
@@ -280,17 +290,24 @@
           <label class="capture-title" for="detail-reason-input">推荐理由</label>
           <textarea id="detail-reason-input" class="thought-input compact-textarea" rows="3" maxlength="180"></textarea>
 
-          <label class="capture-title" for="detail-parking-reason-input">Parking reason</label>
+          <label class="capture-title" for="detail-parking-reason-input">先放着的原因</label>
           <textarea id="detail-parking-reason-input" class="thought-input compact-textarea" rows="3" maxlength="180"></textarea>
 
           <div class="steps-editor">
             <div class="capture-header">
               <p class="capture-title">小步骤</p>
-              <button id="add-step-button" class="secondary-button small-button" type="button">新增一步</button>
+              <div class="inline-action-group">
+                <button id="regenerate-steps-button" class="secondary-button small-button" type="button">重新生成</button>
+                <button id="add-step-button" class="secondary-button small-button" type="button">新增一步</button>
+              </div>
             </div>
             <div id="detail-steps"></div>
           </div>
 
+          <div id="detail-regenerate-status" class="inline-status is-hidden" aria-live="polite">
+            <span id="detail-regenerate-message">已重新生成，保存后生效。</span>
+            <button id="undo-regenerate-steps-button" class="panel-link muted-link" type="button">撤销本次生成</button>
+          </div>
           <p id="detail-error" class="field-error" aria-live="polite"></p>
           <p id="detail-success" class="field-success" aria-live="polite"></p>
 
@@ -303,6 +320,6 @@
       </div>
     </main>
 
-    <script type="module" src="./app.js?v=20260805-local-semantic-organizer"></script>
+    <script type="module" src="./app.js?v=20260808-ai-fast-fallback"></script>
   </body>
 </html>

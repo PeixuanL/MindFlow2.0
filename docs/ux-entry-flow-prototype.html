@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindFlow UX Entry Flow Prototype</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page: #f6f1ec;
+        --paper: #fffaf5;
+        --paper-strong: #fffdf9;
+        --ink: #332d2a;
+        --muted: #756a64;
+        --soft: #e8ddd4;
+        --line: rgba(70, 58, 50, 0.12);
+        --coral: #df7e62;
+        --coral-dark: #b85f4b;
+        --coral-soft: rgba(223, 126, 98, 0.16);
+        --sage: #6f8f78;
+        --sage-soft: rgba(111, 143, 120, 0.15);
+        --blue: #6b7fa8;
+        --blue-soft: rgba(107, 127, 168, 0.14);
+        --shadow: 0 24px 72px rgba(99, 76, 57, 0.16);
+        --radius-lg: 22px;
+        --radius-md: 15px;
+        --font: ui-sans-serif, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background:
+          linear-gradient(135deg, rgba(111, 143, 120, 0.13), transparent 34%),
+          linear-gradient(180deg, #fbf7f2 0%, var(--page) 100%);
+        color: var(--ink);
+        font-family: var(--font);
+      }
+
+      .board {
+        width: min(100%, 1500px);
+        margin: 0 auto;
+        padding: 34px 28px 44px;
+      }
+
+      .board-header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+
+      .board-title {
+        max-width: 700px;
+      }
+
+      .eyebrow,
+      .frame-label,
+      .meta,
+      .fine {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 760;
+        line-height: 1.4;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        margin-top: 4px;
+        font-size: 30px;
+        line-height: 1.14;
+        letter-spacing: 0;
+      }
+
+      .board-note {
+        max-width: 360px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .frames {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(260px, 1fr));
+        gap: 20px;
+        align-items: start;
+      }
+
+      .frame-wrap {
+        display: grid;
+        gap: 10px;
+      }
+
+      .frame-label {
+        padding-left: 8px;
+      }
+
+      .phone {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        min-height: 844px;
+        border: 1px solid rgba(63, 52, 45, 0.12);
+        border-radius: 30px;
+        padding: 20px 16px 16px;
+        background:
+          linear-gradient(180deg, rgba(255, 253, 249, 0.94), rgba(255, 247, 242, 0.92)),
+          var(--paper);
+        box-shadow: var(--shadow);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 42px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 840;
+      }
+
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #9b6766, var(--coral));
+        color: #fff;
+        font-size: 16px;
+        font-weight: 860;
+      }
+
+      .ghost-link {
+        border: 0;
+        padding: 8px 0;
+        background: transparent;
+        color: var(--coral-dark);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 820;
+      }
+
+      .headline {
+        margin-top: 28px;
+      }
+
+      .headline h2 {
+        max-width: 270px;
+        font-size: 30px;
+        line-height: 1.15;
+        letter-spacing: 0;
+      }
+
+      .headline p {
+        margin-top: 9px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .focus-card,
+      .capture,
+      .summary,
+      .list-panel,
+      .sync-sheet {
+        border: 1px solid rgba(255, 255, 255, 0.78);
+        border-radius: var(--radius-lg);
+        background: rgba(255, 253, 249, 0.72);
+        box-shadow: 0 12px 32px rgba(99, 76, 57, 0.1);
+      }
+
+      .focus-card {
+        margin-top: 24px;
+        padding: 18px;
+      }
+
+      .focus-card.primary {
+        margin-top: 18px;
+      }
+
+      .card-top,
+      .tabs,
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .pill {
+        flex: 0 0 auto;
+        border-radius: 999px;
+        padding: 5px 9px;
+        background: var(--coral-soft);
+        color: var(--coral-dark);
+        font-size: 12px;
+        font-weight: 840;
+      }
+
+      .pill.sage {
+        background: var(--sage-soft);
+        color: #536f5a;
+      }
+
+      .pill.blue {
+        background: var(--blue-soft);
+        color: #566b96;
+      }
+
+      .focus-card h3 {
+        margin-top: 14px;
+        font-size: 23px;
+        line-height: 1.24;
+        letter-spacing: 0;
+      }
+
+      .step {
+        display: grid;
+        gap: 6px;
+        margin-top: 16px;
+        border: 1px solid rgba(96, 81, 72, 0.1);
+        border-radius: var(--radius-md);
+        padding: 13px;
+        background: linear-gradient(135deg, var(--blue-soft), rgba(255, 255, 255, 0.4));
+      }
+
+      .step strong {
+        font-size: 16px;
+        line-height: 1.45;
+      }
+
+      .reason {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      button {
+        min-height: 44px;
+        border-radius: 14px;
+        padding: 10px 14px;
+        font: inherit;
+        font-size: 15px;
+        font-weight: 840;
+      }
+
+      .secondary {
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.54);
+        color: var(--ink);
+      }
+
+      .primary {
+        border: 1px solid rgba(184, 95, 75, 0.5);
+        background: var(--coral);
+        color: #fff;
+      }
+
+      .reassure {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 740;
+        line-height: 1.4;
+      }
+
+      .capture {
+        display: grid;
+        gap: 10px;
+        margin-top: auto;
+        padding: 14px;
+      }
+
+      .capture.compact {
+        margin-top: 16px;
+      }
+
+      .textarea {
+        min-height: 130px;
+        border: 1px solid rgba(96, 81, 72, 0.1);
+        border-radius: var(--radius-md);
+        padding: 13px;
+        background: rgba(255, 255, 255, 0.52);
+        color: rgba(51, 45, 42, 0.68);
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
+      .capture-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .sync-entry {
+        margin-top: 12px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .sync-entry strong {
+        color: var(--coral-dark);
+      }
+
+      .summary {
+        display: grid;
+        gap: 12px;
+        margin-top: 18px;
+        padding: 16px;
+      }
+
+      .summary h3 {
+        font-size: 22px;
+        line-height: 1.25;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .stat {
+        min-height: 72px;
+        border-radius: 15px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      .stat strong {
+        display: block;
+        font-size: 24px;
+        line-height: 1;
+      }
+
+      .stat span {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 760;
+        line-height: 1.25;
+      }
+
+      .list-title {
+        margin-top: 28px;
+      }
+
+      .list-title h2 {
+        font-size: 28px;
+        line-height: 1.14;
+      }
+
+      .tabs {
+        margin-top: 18px;
+        border-radius: 999px;
+        padding: 5px;
+        background: rgba(255, 255, 255, 0.48);
+      }
+
+      .tab {
+        flex: 1;
+        min-height: 38px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .tab.active {
+        background: var(--coral-soft);
+        color: var(--coral-dark);
+      }
+
+      .list-panel {
+        display: grid;
+        gap: 0;
+        margin-top: 16px;
+        overflow: hidden;
+      }
+
+      .item-row {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        padding: 15px;
+        border-bottom: 1px solid rgba(96, 81, 72, 0.08);
+      }
+
+      .item-row:last-child {
+        border-bottom: 0;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        margin-top: 7px;
+        border-radius: 999px;
+        background: var(--coral);
+      }
+
+      .dot.sage {
+        background: var(--sage);
+      }
+
+      .dot.blue {
+        background: var(--blue);
+      }
+
+      .item-row h3 {
+        font-size: 17px;
+        line-height: 1.32;
+      }
+
+      .item-row p {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .inline-add {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        margin-top: auto;
+      }
+
+      .input {
+        min-height: 44px;
+        border: 1px solid rgba(96, 81, 72, 0.1);
+        border-radius: 14px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.55);
+        color: rgba(51, 45, 42, 0.58);
+        font-size: 15px;
+      }
+
+      .sync-sheet {
+        margin-top: auto;
+        padding: 18px;
+      }
+
+      .sync-sheet h3 {
+        font-size: 24px;
+        line-height: 1.22;
+      }
+
+      .sync-sheet p {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .field {
+        margin-top: 14px;
+      }
+
+      .field label {
+        display: block;
+        margin-bottom: 7px;
+        color: var(--coral-dark);
+        font-size: 13px;
+        font-weight: 820;
+      }
+
+      .sheet-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      @media (max-width: 1180px) {
+        .frames {
+          grid-template-columns: repeat(2, minmax(280px, 1fr));
+        }
+      }
+
+      @media (max-width: 680px) {
+        .board {
+          padding: 22px 14px 32px;
+        }
+
+        .board-header {
+          display: grid;
+        }
+
+        .frames {
+          grid-template-columns: 1fr;
+        }
+
+        .phone {
+          min-height: 780px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="board">
+      <header class="board-header">
+        <div class="board-title">
+          <p class="eyebrow">MindFlow UX update</p>
+          <h1>先看层级和文案，不动正式功能</h1>
+        </div>
+        <p class="board-note">这版把“当前可以做什么”提前，把记录入口压到底部，并把登录同步变成轻入口。</p>
+      </header>
+
+      <section class="frames" aria-label="原型状态">
+        <article class="frame-wrap">
+          <p class="frame-label">首页：当前建议更靠上，记录入口在底部</p>
+          <section class="phone">
+            <header class="topbar">
+              <div class="brand"><span class="mark">M</span><span>MindFlow</span></div>
+              <button class="ghost-link" type="button">登录同步</button>
+            </header>
+
+            <section class="headline">
+              <p class="eyebrow">今天</p>
+              <h2>现在只看一件就好</h2>
+              <p>想到新的，也可以随手放到底下。</p>
+            </section>
+
+            <section class="focus-card primary">
+              <div class="card-top">
+                <p class="eyebrow">也许可以先看这个</p>
+                <span class="pill">优先级 1</span>
+              </div>
+              <h3>给牙医打电话预约</h3>
+              <div class="step">
+                <p class="meta">可以小到这一步</p>
+                <strong>打开通讯录，找到诊所电话。</strong>
+              </div>
+              <p class="reason">它比较清楚，不需要一次处理太多。</p>
+              <div class="actions">
+                <button class="secondary" type="button">先不管</button>
+                <button class="primary" type="button">看一下</button>
+              </div>
+              <p class="reassure">其他想法都还在。</p>
+            </section>
+
+            <section class="capture">
+              <p class="eyebrow">又想到什么</p>
+              <div class="textarea">牙医还没约，周末整理房间，保险那个事也要看...</div>
+              <div class="capture-footer">
+                <p class="fine">0/500</p>
+                <button class="primary" type="button">帮我捋一捋</button>
+              </div>
+              <p class="sync-entry">先用起来，之后再 <strong>登录同步</strong>。</p>
+            </section>
+          </section>
+        </article>
+
+        <article class="frame-wrap">
+          <p class="frame-label">整理完成：先给减负反馈，再接当前建议</p>
+          <section class="phone">
+            <header class="topbar">
+              <div class="brand"><span class="mark">M</span><span>MindFlow</span></div>
+              <button class="ghost-link" type="button">登录同步</button>
+            </header>
+
+            <section class="headline">
+              <p class="eyebrow">已经整理好</p>
+              <h2>这些想法已经被接住了</h2>
+            </section>
+
+            <section class="summary">
+              <h3>我帮你拆成 5 件</h3>
+              <div class="stats">
+                <div class="stat"><strong>1</strong><span>适合现在看</span></div>
+                <div class="stat"><strong>3</strong><span>可以先放着</span></div>
+                <div class="stat"><strong>1</strong><span>有时间线索</span></div>
+              </div>
+              <p class="fine">不用一次处理完，先看一件就够了。</p>
+            </section>
+
+            <section class="focus-card">
+              <div class="card-top">
+                <p class="eyebrow">也许可以先看这个</p>
+                <span class="pill">优先级 1</span>
+              </div>
+              <h3>给牙医打电话预约</h3>
+              <div class="step">
+                <p class="meta">可以小到这一步</p>
+                <strong>打开通讯录，找到诊所电话。</strong>
+              </div>
+              <div class="actions">
+                <button class="secondary" type="button">先不管</button>
+                <button class="primary" type="button">看一下</button>
+              </div>
+            </section>
+
+            <section class="capture compact">
+              <p class="eyebrow">继续放进来</p>
+              <div class="textarea">不用整理句子，想到什么都可以先写。</div>
+            </section>
+          </section>
+        </article>
+
+        <article class="frame-wrap">
+          <p class="frame-label">全部想法：状态中文化，管理感弱一点</p>
+          <section class="phone">
+            <header class="topbar">
+              <div class="brand"><span class="mark">M</span><span>MindFlow</span></div>
+              <button class="ghost-link" type="button">首页</button>
+            </header>
+
+            <section class="list-title">
+              <p class="eyebrow">这些都在</p>
+              <h2>想法还在，慢慢处理</h2>
+            </section>
+
+            <nav class="tabs" aria-label="想法状态">
+              <button class="tab active" type="button">现在看</button>
+              <button class="tab" type="button">先放着</button>
+              <button class="tab" type="button">已完成</button>
+            </nav>
+
+            <section class="list-panel">
+              <div class="item-row">
+                <span class="dot"></span>
+                <div>
+                  <div class="row"><h3>给牙医打电话预约</h3><span class="pill">高</span></div>
+                  <p>下一步：打开通讯录，找到诊所电话。</p>
+                </div>
+              </div>
+              <div class="item-row">
+                <span class="dot blue"></span>
+                <div>
+                  <div class="row"><h3>回复小王消息</h3><span class="pill blue">中</span></div>
+                  <p>下一步：先回一句“我晚点看一下”。</p>
+                </div>
+              </div>
+              <div class="item-row">
+                <span class="dot sage"></span>
+                <div>
+                  <div class="row"><h3>整理论文材料</h3><span class="pill sage">低</span></div>
+                  <p>下一步：只打开文件夹，不开始整理。</p>
+                </div>
+              </div>
+            </section>
+
+            <form class="inline-add">
+              <div class="input">临时补一件事</div>
+              <button class="secondary" type="button">新增</button>
+            </form>
+          </section>
+        </article>
+
+        <article class="frame-wrap">
+          <p class="frame-label">登录同步：底部轻入口，不挡首次使用</p>
+          <section class="phone">
+            <header class="topbar">
+              <div class="brand"><span class="mark">M</span><span>MindFlow</span></div>
+              <button class="ghost-link" type="button">关闭</button>
+            </header>
+
+            <section class="headline">
+              <p class="eyebrow">先用也没关系</p>
+              <h2>想换设备时，再登录同步</h2>
+              <p>当前这次整理会先保存在这台设备上。</p>
+            </section>
+
+            <section class="focus-card">
+              <div class="card-top">
+                <p class="eyebrow">这次整理</p>
+                <span class="pill sage">已保存</span>
+              </div>
+              <h3>5 件想法都还在</h3>
+              <p class="reason">注册后可以在其他设备继续查看和处理。</p>
+            </section>
+
+            <section class="sync-sheet">
+              <h3>登录同步</h3>
+              <p>先用起来。需要跨设备找回时，再把这个空间同步到账号。</p>
+              <div class="field">
+                <label>用户名</label>
+                <div class="input">输入用户名</div>
+              </div>
+              <div class="field">
+                <label>密码</label>
+                <div class="input">输入密码</div>
+              </div>
+              <div class="sheet-actions">
+                <button class="secondary" type="button">暂时不用</button>
+                <button class="primary" type="button">登录同步</button>
+              </div>
+            </section>
+          </section>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

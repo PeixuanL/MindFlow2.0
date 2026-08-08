@@ -153,6 +153,7 @@ const server = createServer(async (request, response) => {
     try {
       const body = await readJsonBody(request);
       const rawText = typeof body.rawText === "string" ? body.rawText : "";
+      const strategy = typeof body.strategy === "string" ? body.strategy : null;
       if (!rawText.trim()) {
         sendJson(response, 400, { error: "empty_input" });
         return;
@@ -163,7 +164,7 @@ const server = createServer(async (request, response) => {
         return;
       }
 
-      const aiJson = await ollamaClient({ rawText });
+      const aiJson = await ollamaClient({ rawText, strategy });
       sendJson(response, 200, { aiJson });
     } catch {
       sendJson(response, 503, { error: "local_ai_unavailable" });

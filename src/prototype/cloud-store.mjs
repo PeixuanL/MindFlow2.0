@@ -112,6 +112,7 @@ export function createMindFlowCloudStore(options = {}) {
   const localStore = createMindFlowStore(options);
   const cloudClient = options.cloudClient ?? createSupabaseRestClient(options);
   const allowLocalAuthFallback = options.allowLocalAuthFallback === true;
+  let demoSessionActive = localStore.getSession()?.key === "demo";
   let syncPromise = Promise.resolve();
 
   function hasCloudSession() {
@@ -146,7 +147,7 @@ export function createMindFlowCloudStore(options = {}) {
       return syncPromise;
     }
 
-    if (shouldUseLocalOnlySession()) {
+    if (demoSessionActive || shouldUseLocalOnlySession()) {
       syncPromise = Promise.resolve();
       return syncPromise;
     }
@@ -242,13 +243,23 @@ export function createMindFlowCloudStore(options = {}) {
     },
 
     async logout() {
+      demoSessionActive = false;
       localStore.logout();
       if (hasCloudSession()) {
         await cloudClient.signOut();
       }
     },
 
+    async enterDemo() {
+      demoSessionActive = true;
+      return localStore.login("demo");
+    },
+
     getSession() {
+      if (demoSessionActive) {
+        return localStore.getSession();
+      }
+
       if (!hasCloudSession() && !allowLocalAuthFallback) {
         return null;
       }

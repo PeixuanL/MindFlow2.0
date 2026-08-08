@@ -39,6 +39,7 @@ const registerOnlyFields = document.querySelector("#register-only-fields");
 const loginButton = document.querySelector("#login-button");
 const loginError = document.querySelector("#login-error");
 const loginSupportingCopy = document.querySelector(".login-hero .supporting-copy");
+const demoButton = document.querySelector("#demo-button");
 
 const input = document.querySelector("#thought-input");
 const inputCount = document.querySelector("#thought-input-count");
@@ -73,6 +74,12 @@ const keepParkedButton = document.querySelector("#keep-parked-button");
 const toast = document.querySelector("#toast");
 const toastMessage = document.querySelector("#toast-message");
 const toastAction = document.querySelector("#toast-action");
+const homeThoughtsTitle = document.querySelector("#home-thoughts-title");
+const viewAllThoughtsButton = document.querySelector("#view-all-thoughts-button");
+const resplitPanel = document.querySelector("#resplit-panel");
+const resplitStrategyButtons = [...document.querySelectorAll("[data-resplit-strategy]")];
+const cancelResplitButton = document.querySelector("#cancel-resplit-button");
+const undoRecentOrganizeButton = document.querySelector("#undo-recent-organize-button");
 const homeThoughtsList = document.querySelector("#home-thoughts-list");
 const homeCompletedList = document.querySelector("#home-completed-list");
 const homeThoughtsCount = document.querySelector("#home-thoughts-count");
@@ -106,6 +113,10 @@ const detailParkingReasonInput = document.querySelector("#detail-parking-reason-
 const detailSteps = document.querySelector("#detail-steps");
 const detailError = document.querySelector("#detail-error");
 const detailSuccess = document.querySelector("#detail-success");
+const detailRegenerateStatus = document.querySelector("#detail-regenerate-status");
+const detailRegenerateMessage = document.querySelector("#detail-regenerate-message");
+const regenerateStepsButton = document.querySelector("#regenerate-steps-button");
+const undoRegenerateStepsButton = document.querySelector("#undo-regenerate-steps-button");
 const addStepButton = document.querySelector("#add-step-button");
 const detailBackButton = document.querySelector("#detail-back-button");
 const detailSaveButton = document.querySelector("#detail-save-button");
@@ -118,6 +129,9 @@ let toastTimer = null;
 let undoTimer = null;
 let deletedItemId = null;
 let activeItemTab = "active";
+let recentOrganizedBatchId = null;
+let recentOrganizedRawText = "";
+let previousDetailStepsSnapshot = null;
 let voiceController = null;
 let authMode = "login";
 const ITEM_PAGE_SIZE = 100;
@@ -127,17 +141,26 @@ const itemVisibleLimits = {
   done: ITEM_PAGE_SIZE,
 };
 
+const resplitStrategyLabels = {
+  sequence: "按顺序拆",
+  finer: "拆得更细",
+  missing: "查漏补缺",
+};
+const detailRegenerateStrategies = ["finer", "sequence", "missing"];
+let detailRegenerateIndex = 0;
+const LOCAL_AI_WAIT_MS = 8000;
+
 if (isLocalPrototypeHost && loginSupportingCopy) {
   loginSupportingCopy.textContent = "注册一个本机账号，数据只保存在这台电脑当前浏览器里。";
 }
 
-async function serverAiClient({ rawText }) {
+async function serverAiClient({ rawText, strategy = null }) {
   const response = await fetch("/api/organize", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ rawText }),
+    body: JSON.stringify({ rawText, strategy }),
   });
 
   if (!response.ok) {
@@ -150,6 +173,55 @@ async function serverAiClient({ rawText }) {
   }
 
   return payload.aiJson;
+}
+
+function createTimeoutPromise(milliseconds) {
+  return new Promise((_, reject) => {
+    window.setTimeout(() => reject(new Error("local_ai_timeout")), milliseconds);
+  });
+}
+
+function createFastOrganizeFallback(rawText, { strategy = null, reason = "local_ai_unavailable" } = {}) {
+  const result = createLocalSemanticResult(rawText, { strategy });
+
+  return {
+    ...result,
+    meta: {
+      ...result.meta,
+      fallbackReason: reason,
+    },
+  };
+}
+
+async function organizeWithLocalAi(rawText, { strategy = null } = {}) {
+  const aiResultPromise = organizeThoughtsWithAi(rawText, {
+    aiClient: serverAiClient,
+    strategy,
+  });
+
+  try {
+    const result = await Promise.race([
+      aiResultPromise,
+      createTimeoutPromise(LOCAL_AI_WAIT_MS),
+    ]);
+    const saveBlocker = getOrganizedResultSaveBlocker(result, rawText);
+
+    if (!saveBlocker) {
+      return { result, source: "ai" };
+    }
+
+    return {
+      result: createFastOrganizeFallback(rawText, { strategy, reason: saveBlocker }),
+      source: "fallback",
+      fallbackReason: saveBlocker,
+    };
+  } catch (error) {
+    return {
+      result: createFastOrganizeFallback(rawText, { strategy, reason: error.message }),
+      source: "fallback",
+      fallbackReason: error.message,
+    };
+  }
 }
 
 function getSaveBlockerMessage(reason) {
@@ -185,7 +257,7 @@ function show(section) {
   section.classList.remove("is-hidden");
 }
 
-function showView(name) {
+function showView(name, { activeNav = name } = {}) {
   Object.values(views).forEach((view) => view.classList.add("is-hidden"));
   show(views[name]);
   appShell.classList.toggle("is-login-shell", name === "login");
@@ -194,7 +266,7 @@ function showView(name) {
   todayLabel.textContent = displayName;
   sidebarUserName.textContent = displayName;
   navButtons.forEach((button) => {
-    const isActive = button.dataset.nav === name || (name === "detail" && button.dataset.nav === "items");
+    const isActive = button.dataset.nav === activeNav || (activeNav === "detail" && button.dataset.nav === "items");
     button.classList.toggle("is-active", isActive);
     if (isActive) {
       button.setAttribute("aria-current", "page");
@@ -211,6 +283,30 @@ function navigate(hash) {
   }
 
   window.location.hash = hash;
+}
+
+function createDetailHash(itemId, from = "items") {
+  const params = new URLSearchParams({ from });
+  return `#detail/${encodeURIComponent(itemId)}?${params.toString()}`;
+}
+
+function parseDetailHash(hash = window.location.hash) {
+  if (!hash.startsWith("#detail/")) {
+    return null;
+  }
+
+  const detailPath = hash.slice("#detail/".length);
+  const [rawItemId, rawQuery = ""] = detailPath.split("?");
+  const params = new URLSearchParams(rawQuery);
+  const from = params.get("from") === "home" ? "home" : "items";
+  return {
+    itemId: decodeURIComponent(rawItemId),
+    from,
+  };
+}
+
+function getDetailReturnHash(from) {
+  return from === "home" ? "#home" : "#items";
 }
 
 function getUserState() {
@@ -240,8 +336,13 @@ function setBusy(scope, nextBusy) {
   restoreCandidateButton.disabled = isBusy("restoreCandidate");
   keepParkedButton.disabled = isBusy("keepParked");
   loginButton.disabled = isBusy("auth");
+  demoButton.disabled = isBusy("auth");
   manualAddButton.disabled = isBusy("manualAdd");
   detailSaveButton.disabled = isBusy("detailSave");
+  regenerateStepsButton.disabled = isBusy("regenerateSteps");
+  resplitStrategyButtons.forEach((button) => {
+    button.disabled = isBusy("organize");
+  });
   organizeButton.textContent = isBusy("organize") ? "整理中…" : "帮我捋一捋";
 }
 
@@ -416,11 +517,66 @@ function formatTaskMeta(item) {
   return parts.join(" · ");
 }
 
+function getPriorityRank(item) {
+  return { high: 0, medium: 1, low: 2 }[item.priority] ?? 3;
+}
+
+function sortPriorityPreviewItems(items) {
+  return [...items].sort((a, b) => {
+    const priorityDelta = getPriorityRank(a) - getPriorityRank(b);
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
+    return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
+  });
+}
+
+function getRecentOrganizedItems(items) {
+  if (!recentOrganizedBatchId) {
+    return [];
+  }
+
+  return items
+    .filter((item) => item.batchId === recentOrganizedBatchId && item.status !== "done")
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+function getRecentOrganizedRecommendation() {
+  if (!currentUser || !recentOrganizedBatchId) {
+    return null;
+  }
+
+  return getRecentOrganizedItems(getUserState().items).find((item) => item.status === "active") ?? null;
+}
+
+function getHomeRecommendation() {
+  if (!currentUser) {
+    return null;
+  }
+
+  return getRecentOrganizedRecommendation() ?? store.getRecommendation(currentUser.id);
+}
+
+function hasRecentOrganizedPreview() {
+  if (!currentUser || !recentOrganizedBatchId) {
+    return false;
+  }
+
+  return getRecentOrganizedItems(getUserState().items).length > 0;
+}
+
+function getNextOpenStep(item) {
+  const steps = Array.isArray(item.steps) ? item.steps : [];
+  const nextStep = steps.find((_, index) => !isStepCompleted(item, index));
+  return nextStep || item.nextStep || "打开详情，把下一步补清楚。";
+}
+
 function createHomeThoughtRow(item, { completed = false } = {}) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `home-thought-row ${completed ? "is-completed" : ""}`;
-  button.addEventListener("click", () => navigate(`#detail/${item.id}`));
+  button.addEventListener("click", () => navigate(createDetailHash(item.id, "home")));
 
   const dot = document.createElement("span");
   dot.className = `row-dot ${statusTone(item.status)}`;
@@ -431,7 +587,7 @@ function createHomeThoughtRow(item, { completed = false } = {}) {
   const title = document.createElement("strong");
   title.textContent = item.title;
   const meta = document.createElement("span");
-  meta.textContent = completed ? relativeTime(item.completedAt) : `${relativeTime(item.updatedAt || item.createdAt)} · 来自记一笔`;
+  meta.textContent = completed ? relativeTime(item.completedAt) : getNextOpenStep(item);
   text.append(title, meta);
 
   const chevron = document.createElement("span");
@@ -445,30 +601,48 @@ function createHomeThoughtRow(item, { completed = false } = {}) {
 
 function renderHomeSidebar(itemsOverride = null) {
   if (!currentUser) {
+    homeThoughtsTitle.textContent = "优先处理";
+    viewAllThoughtsButton.textContent = "查看全部 ›";
+    hide(resplitPanel);
+    hide(undoRecentOrganizeButton);
     homeThoughtsList.replaceChildren();
     homeCompletedList.replaceChildren();
-    homeThoughtsCount.textContent = "共 0 条想法";
+    homeThoughtsCount.textContent = "已显示 0 条优先处理";
     recentCompletedCount.textContent = "0";
     sidebarCompletedCount.textContent = "0";
     return;
   }
 
   const items = itemsOverride ?? getUserState().items;
-  const visible = [...items].sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
-  const openItems = visible.filter((item) => item.status !== "done").slice(0, 5);
-  const completedItems = visible
+  const recentOrganizedItems = getRecentOrganizedItems(items);
+  if (recentOrganizedBatchId && recentOrganizedItems.length === 0) {
+    recentOrganizedBatchId = null;
+  }
+
+  const hasRecentOrganizedItems = recentOrganizedItems.length > 0;
+  const priorityItems = sortPriorityPreviewItems(items.filter((item) => item.status === "active")).slice(0, 3);
+  const previewItems = hasRecentOrganizedItems ? recentOrganizedItems.slice(0, 5) : priorityItems;
+  const completedItems = [...items]
     .filter((item) => item.status === "done")
     .sort((a, b) => (b.completedAt || b.updatedAt || 0) - (a.completedAt || a.updatedAt || 0));
 
+  homeThoughtsTitle.textContent = hasRecentOrganizedItems ? "刚刚整理" : "优先处理";
+  viewAllThoughtsButton.textContent = hasRecentOrganizedItems ? "重新拆分" : "查看全部 ›";
+  if (!hasRecentOrganizedItems) {
+    hide(resplitPanel);
+  }
+  undoRecentOrganizeButton.classList.toggle("is-hidden", !hasRecentOrganizedItems);
   homeThoughtsList.replaceChildren(
-    ...(openItems.length ? openItems.map((item) => createHomeThoughtRow(item)) : [createEmptyState("还没有保存的想法。")]),
+    ...(previewItems.length ? previewItems.map((item) => createHomeThoughtRow(item)) : [createEmptyState("暂时没有需要优先处理的想法。")]),
   );
   homeCompletedList.replaceChildren(
     ...(completedItems.length
       ? completedItems.slice(0, 2).map((item) => createHomeThoughtRow(item, { completed: true }))
       : [createEmptyState("完成后会轻轻放在这里。")]),
   );
-  homeThoughtsCount.textContent = `共 ${items.length} 条想法`;
+  homeThoughtsCount.textContent = hasRecentOrganizedItems
+    ? `这次保存 ${recentOrganizedItems.length} 条，可撤销`
+    : `已显示 ${previewItems.length} 条优先处理`;
   recentCompletedCount.textContent = String(completedItems.length);
   sidebarCompletedCount.textContent = String(completedItems.length);
 }
@@ -500,7 +674,7 @@ function renderHome() {
     focusedItemId = null;
   }
 
-  const recommendation = store.getRecommendation(currentUser.id);
+  const recommendation = getHomeRecommendation();
   if (recommendation) {
     setStatus("其他想法都还在，随时可以回来查看。");
     renderRecommendation(recommendation);
@@ -509,7 +683,7 @@ function renderHome() {
 
   const candidate = store.getParkingCandidate(currentUser.id);
   if (candidate) {
-    setStatus("Active 暂时空着，Parking 也还在");
+    setStatus("现在看暂时空着，先放着也还在");
     renderCandidate(candidate);
     return;
   }
@@ -532,7 +706,7 @@ function createItemCard(item) {
   meta.className = "recommendation-meta";
   const eyebrow = document.createElement("p");
   eyebrow.className = "eyebrow";
-  eyebrow.textContent = item.status === "parking" ? "Parking" : item.status === "done" ? "Done" : "Active";
+  eyebrow.textContent = item.status === "parking" ? "先放着" : item.status === "done" ? "已完成" : "现在看";
   const chip = document.createElement("span");
   chip.textContent = priorityLabels[item.priority];
   meta.append(eyebrow, chip);
@@ -542,7 +716,7 @@ function createItemCard(item) {
 
   const reason = document.createElement("p");
   reason.className = "reason";
-  reason.textContent = item.status === "parking" ? item.parkingReason : item.reason;
+  reason.textContent = `下一步：${getNextOpenStep(item)}`;
 
   const taskMeta = document.createElement("p");
   taskMeta.className = "item-task-meta";
@@ -559,20 +733,20 @@ function createItemCard(item) {
   const controls = document.createElement("div");
   controls.className = "card-controls";
 
-  const detailButton = createButton("详情", "secondary-button card-action-button", () => navigate(`#detail/${item.id}`));
+  const detailButton = createButton("详情", "secondary-button card-action-button", () => navigate(createDetailHash(item.id, "items")));
   const deleteButton = createButton("删除", "secondary-button card-action-button card-action-muted", () => deleteItem(item.id));
   controls.append(detailButton);
 
   if (item.status === "active") {
     controls.append(
-      createButton("Park", "secondary-button card-action-button", () => runItemAction(() => store.updateItem(currentUser.id, item.id, { status: "parking" }))),
+      createButton("先放着", "secondary-button card-action-button", () => runItemAction(() => store.updateItem(currentUser.id, item.id, { status: "parking" }))),
       deleteButton,
       createButton("完成", "primary-action-button card-action-button card-action-primary", () => completeItem(item.id)),
     );
   } else if (item.status === "parking") {
     controls.append(
       deleteButton,
-      createButton("移到 Active", "primary-action-button card-action-button card-action-primary", () => runItemAction(() => store.updateItem(currentUser.id, item.id, { status: "active" }))),
+      createButton("移到现在看", "primary-action-button card-action-button card-action-primary", () => runItemAction(() => store.updateItem(currentUser.id, item.id, { status: "active" }))),
     );
   } else {
     controls.append(
@@ -619,9 +793,9 @@ const listContainersByStatus = {
 };
 
 const emptyTextByStatus = {
-  active: "Active 里暂时没有想法。",
-  parking: "Parking 里暂时是空的。",
-  done: "Done 里暂时没有归档。",
+  active: "现在看里暂时没有想法。",
+  parking: "先放着里暂时是空的。",
+  done: "已完成里暂时没有归档。",
 };
 
 function renderTabs() {
@@ -681,14 +855,33 @@ function addStepInput(value = "", completed = false) {
   detailSteps.append(row);
 }
 
-function renderDetail(itemId) {
+function getDetailStepSnapshot() {
+  return [...detailSteps.querySelectorAll(".step-input-row")].map((row) => ({
+    value: row.querySelector(".text-input")?.value ?? "",
+    completed: row.querySelector(".step-complete-input")?.checked === true,
+  }));
+}
+
+function renderDetailStepSnapshot(snapshot) {
+  detailSteps.replaceChildren();
+  const values = Array.isArray(snapshot) && snapshot.length > 0 ? snapshot : [{ value: "", completed: false }];
+  values.forEach((step) => addStepInput(step.value, step.completed));
+}
+
+function hideDetailRegenerateStatus() {
+  previousDetailStepsSnapshot = null;
+  hide(detailRegenerateStatus);
+}
+
+function renderDetail(itemId, { from = "items" } = {}) {
   const item = findVisibleItem(itemId);
   if (!item) {
-    navigate("#items");
+    navigate(getDetailReturnHash(from));
     return;
   }
 
-  showView("detail");
+  showView("detail", { activeNav: from });
+  detailBackButton.textContent = from === "home" ? "返回首页" : "返回全部想法";
   detailTitleInput.value = item.title;
   detailPriorityInput.value = item.priority;
   detailStatusInput.value = item.status;
@@ -698,6 +891,7 @@ function renderDetail(itemId) {
   detailParkingReasonInput.value = item.parkingReason || "";
   detailError.textContent = "";
   detailSuccess.textContent = "";
+  hideDetailRegenerateStatus();
   detailSteps.replaceChildren();
   item.steps.forEach((step, index) => addStepInput(step, isStepCompleted(item, index)));
 }
@@ -713,7 +907,8 @@ function renderRoute() {
 
   const hash = window.location.hash || "#home";
   if (hash.startsWith("#detail/")) {
-    renderDetail(hash.replace("#detail/", ""));
+    const detailRoute = parseDetailHash(hash);
+    renderDetail(detailRoute.itemId, { from: detailRoute.from });
   } else if (hash === "#items") {
     renderItems();
   } else {
@@ -721,12 +916,13 @@ function renderRoute() {
   }
 }
 
-async function organizeCurrentInput() {
+async function organizeCurrentInput(options = {}) {
   if (isBusy("organize")) {
     return;
   }
 
-  const rawText = input.value.trim();
+  const rawText = String(options.rawText ?? input.value).trim();
+  const resplitStrategy = options.resplitStrategy ?? null;
   captureError.textContent = "";
 
   if (!rawText) {
@@ -743,12 +939,9 @@ async function organizeCurrentInput() {
 
   try {
     setBusy("organize", true);
-    setStatus("正在帮你分开这些想法");
-    const result = isLocalPrototypeHost
-      ? createLocalSemanticResult(rawText)
-      : await organizeThoughtsWithAi(rawText, {
-        aiClient: serverAiClient,
-      });
+    setStatus(resplitStrategy ? `正在${resplitStrategyLabels[resplitStrategy] ?? "重新拆分"}` : "正在帮你分开这些想法");
+    const organized = await organizeWithLocalAi(rawText, { strategy: resplitStrategy });
+    const { result } = organized;
 
     if (result.status === "empty") {
       captureError.textContent = result.message;
@@ -764,16 +957,24 @@ async function organizeCurrentInput() {
       return;
     }
 
-    store.saveOrganizedResult(currentUser.id, rawText, result);
+    const savedBatch = store.saveOrganizedResult(currentUser.id, rawText, result);
     input.value = "";
     updateInputCount();
+    recentOrganizedBatchId = savedBatch.batch.id;
+    recentOrganizedRawText = savedBatch.batch.rawText;
+    hide(resplitPanel);
     focusedItemId = null;
     completionVisible = false;
     renderHome();
-    showToast("已经保存在这台设备上", "去看看", () => navigate("#items"));
+    showToast(
+      organized.source === "fallback" ? "本地 AI 没赶上，已先用快速拆分保存" : "已经保存在这台设备上",
+      "去看看",
+      () => navigate("#items"),
+    );
     reportCloudSync(store.flush(), {
       successMessage: isLocalPrototypeHost ? "" : "云端同步好了",
     });
+    return savedBatch;
   } catch (error) {
     if (error.message === "nothing_to_save") {
       captureError.textContent = "这些想法已经保存过了，没有重复新增。";
@@ -784,9 +985,194 @@ async function organizeCurrentInput() {
 
     captureError.textContent = "刚才没有保存成功，可以再试一次。";
     setStatus("输入还在，可以重试");
+    return null;
   } finally {
     setBusy("organize", false);
   }
+}
+
+function undoRecentOrganization({ restoreInput = false, rerender = true } = {}) {
+  if (!currentUser || !recentOrganizedBatchId) {
+    renderHome();
+    return;
+  }
+
+  const rawText = recentOrganizedRawText;
+  const batchId = recentOrganizedBatchId;
+  const batchItems = getUserState().items.filter((item) => item.batchId === batchId);
+
+  try {
+    batchItems.forEach((item) => store.softDeleteItem(currentUser.id, item.id));
+    recentOrganizedBatchId = null;
+    recentOrganizedRawText = "";
+    focusedItemId = null;
+    completionVisible = false;
+
+    if (restoreInput && rawText) {
+      input.value = rawText;
+      updateInputCount();
+    }
+
+    if (rerender) {
+      navigate("#home");
+      renderHome();
+    }
+    reportCloudSync(store.flush());
+  } catch {
+    setStatus("刚才没有撤销成功，可以再试一次");
+  }
+}
+
+function restartRecentOrganization() {
+  if (!hasRecentOrganizedPreview()) {
+    navigate("#items");
+    return;
+  }
+
+  resplitPanel.classList.toggle("is-hidden");
+}
+
+async function resplitRecentOrganization(strategy) {
+  if (isBusy("organize")) {
+    return;
+  }
+
+  if (!hasRecentOrganizedPreview()) {
+    navigate("#items");
+    return;
+  }
+
+  const rawText = recentOrganizedRawText;
+  const previousBatchId = recentOrganizedBatchId;
+  const strategyLabel = resplitStrategyLabels[strategy] ?? "重新拆分";
+  let deletedItemIds = [];
+
+  if (!rawText.trim()) {
+    captureError.textContent = "没有找到上次输入的原文，可以直接在输入框里重新写一遍。";
+    hide(resplitPanel);
+    return;
+  }
+
+  try {
+    setBusy("organize", true);
+    setStatus(`正在用「${strategyLabel}」重新整理`);
+    captureError.textContent = "";
+
+    const organized = await organizeWithLocalAi(rawText, { strategy });
+    const { result } = organized;
+
+    const saveBlocker = getOrganizedResultSaveBlocker(result, rawText);
+    if (saveBlocker) {
+      captureError.textContent = getSaveBlockerMessage(saveBlocker);
+      setStatus("这版没有保存，上一次整理还在");
+      hide(resplitPanel);
+      return;
+    }
+
+    const previousItems = getUserState().items.filter((item) => item.batchId === previousBatchId);
+    previousItems.forEach((item) => store.softDeleteItem(currentUser.id, item.id));
+    deletedItemIds = previousItems.map((item) => item.id);
+
+    const savedBatch = store.saveOrganizedResult(currentUser.id, rawText, result);
+    input.value = "";
+    updateInputCount();
+    recentOrganizedBatchId = savedBatch.batch.id;
+    recentOrganizedRawText = savedBatch.batch.rawText;
+    focusedItemId = null;
+    completionVisible = false;
+    hide(resplitPanel);
+    renderHome();
+    showToast(
+      organized.source === "fallback" ? `本地 AI 没赶上，已先用「${strategyLabel}」快速拆分` : `已用「${strategyLabel}」重新拆分`,
+      "去看看",
+      () => navigate("#items"),
+    );
+    reportCloudSync(store.flush());
+  } catch (error) {
+    deletedItemIds.forEach((itemId) => {
+      try {
+        store.undoDelete(currentUser.id, itemId);
+      } catch {
+        // Keep going so one restore failure does not block the rest.
+      }
+    });
+    recentOrganizedBatchId = previousBatchId;
+    recentOrganizedRawText = rawText;
+    captureError.textContent = error.message === "nothing_to_save"
+      ? "这次没有生成新的拆分结果，上一次整理还在。"
+      : "刚才重新拆分没有成功，上一次整理还在。";
+    setStatus("可以换个拆法再试一次");
+    renderHome();
+  } finally {
+    setBusy("organize", false);
+  }
+}
+
+async function regenerateDetailSteps() {
+  if (isBusy("regenerateSteps")) {
+    return;
+  }
+
+  const detailRoute = parseDetailHash();
+  const item = detailRoute ? findVisibleItem(detailRoute.itemId) : null;
+  const strategy = detailRegenerateStrategies[detailRegenerateIndex % detailRegenerateStrategies.length];
+  detailRegenerateIndex += 1;
+  const rawText = [
+    detailTitleInput.value,
+    item?.source,
+    detailReasonInput.value,
+  ]
+    .filter(Boolean)
+    .join("，");
+
+  if (!rawText.trim()) {
+    detailError.textContent = "先留一个标题，再重新生成小步骤。";
+    return;
+  }
+
+  try {
+    setBusy("regenerateSteps", true);
+    regenerateStepsButton.textContent = "生成中…";
+    previousDetailStepsSnapshot = getDetailStepSnapshot();
+    const organized = await organizeWithLocalAi(rawText, { strategy });
+    const { result } = organized;
+    const saveBlocker = getOrganizedResultSaveBlocker(result, rawText);
+    if (saveBlocker) {
+      detailError.textContent = getSaveBlockerMessage(saveBlocker);
+      return;
+    }
+
+    const candidate = result.items?.[0] ?? result.suggestions?.[0] ?? result.suggestion;
+    const steps = candidate?.focusSteps?.length ? candidate.focusSteps : candidate?.steps;
+
+    if (!Array.isArray(steps) || steps.length === 0) {
+      detailError.textContent = "这次没有生成合适的小步骤，可以手动新增。";
+      return;
+    }
+
+    detailSteps.replaceChildren();
+    steps.slice(0, 5).forEach((step) => addStepInput(step));
+    detailError.textContent = "";
+    detailSuccess.textContent = "";
+    detailRegenerateMessage.textContent = organized.source === "fallback"
+      ? `本地 AI 没赶上，已按「${resplitStrategyLabels[strategy]}」快速生成，保存后生效。`
+      : `已按「${resplitStrategyLabels[strategy]}」重新生成，保存后生效。`;
+    show(detailRegenerateStatus);
+  } finally {
+    setBusy("regenerateSteps", false);
+    regenerateStepsButton.textContent = "重新生成";
+  }
+}
+
+function undoRegeneratedDetailSteps() {
+  if (!previousDetailStepsSnapshot) {
+    return;
+  }
+
+  renderDetailStepSnapshot(previousDetailStepsSnapshot);
+  hideDetailRegenerateStatus();
+  detailError.textContent = "";
+  detailSuccess.textContent = "已撤销本次生成。";
 }
 
 function runItemAction(action, { afterSuccess, scope = "itemAction" } = {}) {
@@ -952,6 +1338,24 @@ registerModeButton.addEventListener("click", () => {
   renderAuthMode();
 });
 
+demoButton.addEventListener("click", async () => {
+  loginError.textContent = "";
+
+  try {
+    setBusy("auth", true);
+    currentUser = await store.enterDemo();
+    accountInput.value = "";
+    passwordInput.value = "";
+    confirmPasswordInput.value = "";
+    displayNameInput.value = "";
+    navigate("#home");
+  } catch {
+    loginError.textContent = "Demo 暂时没有进入成功，可以稍后再试。";
+  } finally {
+    setBusy("auth", false);
+  }
+});
+
 logoutButton.addEventListener("click", async () => {
   await store.logout();
   currentUser = null;
@@ -980,6 +1384,29 @@ navButtons.forEach((button) => {
   });
 });
 
+viewAllThoughtsButton.addEventListener("click", () => {
+  if (hasRecentOrganizedPreview()) {
+    restartRecentOrganization();
+    return;
+  }
+
+  navigate("#items");
+});
+
+resplitStrategyButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    resplitRecentOrganization(button.dataset.resplitStrategy);
+  });
+});
+
+cancelResplitButton.addEventListener("click", () => {
+  hide(resplitPanel);
+});
+
+undoRecentOrganizeButton.addEventListener("click", () => {
+  undoRecentOrganization({ restoreInput: true });
+});
+
 sidebarToggle.addEventListener("click", () => {
   appShell.classList.toggle("is-sidebar-collapsed");
 });
@@ -1002,7 +1429,7 @@ itemTabs.forEach((tab) => {
 });
 
 lookButton.addEventListener("click", () => {
-  const recommendation = store.getRecommendation(currentUser.id);
+  const recommendation = getHomeRecommendation();
   if (!recommendation) {
     renderHome();
     return;
@@ -1014,18 +1441,26 @@ lookButton.addEventListener("click", () => {
 });
 
 skipButton.addEventListener("click", () => {
-  const recommendation = store.getRecommendation(currentUser.id);
+  const recommendation = getHomeRecommendation();
   if (!recommendation) {
     renderHome();
     return;
   }
 
-  runItemAction(() => store.skipItem(currentUser.id, recommendation.id), { scope: "skip" });
+  const wasRecentRecommendation = recommendation.batchId === recentOrganizedBatchId;
+  runItemAction(() => store.skipItem(currentUser.id, recommendation.id), {
+    scope: "skip",
+    afterSuccess: () => {
+      if (wasRecentRecommendation) {
+        recentOrganizedBatchId = null;
+      }
+    },
+  });
 });
 
 focusDetailButton.addEventListener("click", () => {
   if (focusedItemId) {
-    navigate(`#detail/${focusedItemId}`);
+    navigate(createDetailHash(focusedItemId, "home"));
   }
 });
 
@@ -1104,15 +1539,22 @@ undoButton.addEventListener("click", () => {
   }
 });
 
+regenerateStepsButton.addEventListener("click", regenerateDetailSteps);
+undoRegenerateStepsButton.addEventListener("click", undoRegeneratedDetailSteps);
 addStepButton.addEventListener("click", () => addStepInput(""));
-detailBackButton.addEventListener("click", () => navigate("#items"));
+detailBackButton.addEventListener("click", () => {
+  const detailRoute = parseDetailHash();
+  navigate(getDetailReturnHash(detailRoute?.from));
+});
 
 detailForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   detailError.textContent = "";
   detailSuccess.textContent = "";
 
-  const itemId = window.location.hash.replace("#detail/", "");
+  const detailRoute = parseDetailHash();
+  const itemId = detailRoute?.itemId ?? "";
+  const from = detailRoute?.from ?? "items";
   const stepRows = [...detailSteps.querySelectorAll(".step-input-row")];
   const steps = [];
   const completedStepIndexes = [];
@@ -1155,16 +1597,16 @@ detailForm.addEventListener("submit", async (event) => {
       steps,
       completedStepIndexes,
     });
-    renderDetail(itemId);
+    renderDetail(itemId, { from });
     detailSuccess.textContent = "已保存在这台设备上，正在同步云端…";
     store.flush()
       .then(() => {
-        if (window.location.hash === `#detail/${itemId}`) {
+        if (parseDetailHash()?.itemId === itemId) {
           detailSuccess.textContent = "已保存到云端";
         }
       })
       .catch(() => {
-        if (window.location.hash === `#detail/${itemId}`) {
+        if (parseDetailHash()?.itemId === itemId) {
           detailError.textContent = "内容已保存在这台设备上，云端暂时没连上。";
           detailSuccess.textContent = "";
         }

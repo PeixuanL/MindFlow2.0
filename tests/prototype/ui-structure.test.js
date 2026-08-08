@@ -43,6 +43,64 @@ test("desktop home shell exposes the refined interaction landmarks", async () =>
   assert.equal(app.includes("详情 ›"), false, "home sidebar rows should not repeat detail labels");
 });
 
+test("home sidebar is a priority action preview with source-aware detail return", async () => {
+  const [html, app, css] = await Promise.all([
+    readFile("src/prototype/index.html", "utf8"),
+    readFile("src/prototype/app.js", "utf8"),
+    readFile("src/prototype/styles.css", "utf8"),
+  ]);
+
+  assert.ok(html.includes("./styles.css?v="), "stylesheet should include a version query so visual state fixes are not cached");
+  assert.ok(html.includes("优先处理"), "home preview should be framed as priority actions");
+  assert.ok(html.includes("查看全部 ›"), "global list should remain a separate CTA");
+  assert.ok(app.includes("getNextOpenStep(item)"), "home rows should preview the concrete next step");
+  assert.ok(app.includes("recentOrganizedBatchId"), "home should remember the latest organized batch during the session");
+  assert.ok(app.includes("刚刚整理"), "home should show the latest organize result before falling back to priority preview");
+  assert.ok(app.includes("这次保存"), "home should explain that the current preview came from the latest organize action");
+  assert.ok(app.includes("savedBatch.batch.id"), "saving organized input should set the latest batch as the home preview");
+  assert.ok(app.includes("organizeWithLocalAi"), "organize and resplit should go through the local AI endpoint");
+  assert.ok(app.includes("LOCAL_AI_WAIT_MS"), "local AI should have a bounded wait before falling back");
+  assert.ok(app.includes("createFastOrganizeFallback"), "the browser runtime should keep a fast local fallback when AI is slow or unreliable");
+  assert.ok(app.includes("Promise.race"), "AI and timeout should race so the UI does not get stuck waiting");
+  assert.ok(app.includes("本地 AI 没赶上"), "fallback saves should be transparent to the user");
+  assert.ok(html.includes("撤销本次整理"), "latest organize preview should offer a one-click undo");
+  assert.ok(html.includes("换一种拆法"), "resplit should use an in-product option panel instead of a browser confirm");
+  assert.ok(html.includes('data-resplit-strategy="sequence"'), "resplit should offer sequence-based splitting");
+  assert.ok(html.includes('data-resplit-strategy="finer"'), "resplit should offer finer splitting");
+  assert.ok(html.includes('data-resplit-strategy="missing"'), "resplit should offer missing-task recovery");
+  assert.ok(css.includes(".resplit-panel.is-hidden"), "resplit panel should stay hidden until the user asks to resplit");
+  assert.equal(app.includes("window.confirm"), false, "resplit should not use native browser confirmation");
+  assert.ok(app.includes("undoRecentOrganization"), "runtime should let users undo a bad organize batch");
+  assert.ok(app.includes("resplitRecentOrganization"), "runtime should run a new split from the selected strategy");
+  assert.ok(app.includes("setStatus(`正在用「${strategyLabel}」重新整理`)"), "resplit should give immediate visible progress feedback");
+  assert.ok(app.includes("上一次整理还在"), "failed resplits should reassure the user that the previous batch was preserved");
+  assert.ok(app.includes("store.undoDelete(currentUser.id, itemId)"), "failed resplits should restore the previous batch");
+  assert.ok(app.includes('createDetailHash(item.id, "home")'), "home rows should carry home as the detail source");
+  assert.ok(app.includes('createDetailHash(item.id, "items")'), "item-list rows should carry items as the detail source");
+  assert.ok(app.includes('from === "home" ? "返回首页" : "返回全部想法"'), "detail back copy should match entry source");
+  assert.equal(app.includes("来自记一笔"), false, "home priority rows should not spend space on source copy");
+});
+
+test("detail view exposes step regeneration and list cards avoid source explanations", async () => {
+  const [html, app] = await Promise.all([
+    readFile("src/prototype/index.html", "utf8"),
+    readFile("src/prototype/app.js", "utf8"),
+  ]);
+
+  assert.ok(html.includes('id="regenerate-steps-button"'), "detail should expose a step regeneration control");
+  assert.ok(html.includes('id="detail-regenerate-status"'), "detail regeneration should expose an inline undo status");
+  assert.ok(html.includes('id="undo-regenerate-steps-button"'), "detail regeneration should offer a lightweight undo");
+  assert.ok(app.includes("regenerateDetailSteps"), "runtime should regenerate small steps for the current item");
+  assert.ok(app.includes("detailRegenerateStrategies"), "detail regeneration should rotate through alternate local strategies");
+  assert.ok(app.includes("previousDetailStepsSnapshot = getDetailStepSnapshot()"), "detail regeneration should cache the previous step draft");
+  assert.ok(app.includes("undoRegeneratedDetailSteps"), "detail regeneration should restore the previous draft when undone");
+  assert.ok(app.includes("renderDetailStepSnapshot(previousDetailStepsSnapshot)"), "undo should restore the exact step inputs");
+  assert.ok(app.includes("已按「${resplitStrategyLabels[strategy]}」重新生成"), "detail regeneration should show visible success feedback");
+  assert.ok(app.includes('regenerateStepsButton.textContent = "生成中…"'), "detail regeneration should show an in-progress button state");
+  assert.equal(app.includes('reason.textContent = item.status === "parking" ? item.parkingReason : item.reason'), false);
+  assert.ok(app.includes("下一步：${getNextOpenStep(item)}"), "list cards should show the actionable next step instead of source text");
+});
+
 test("login uses a standalone page shell instead of sharing the app workspace", async () => {
   const [html, app, css] = await Promise.all([
     readFile("src/prototype/index.html", "utf8"),
@@ -51,9 +109,17 @@ test("login uses a standalone page shell instead of sharing the app workspace", 
   ]);
 
   assert.ok(html.includes("login-page"), "login view should expose a dedicated login-page layout");
+  assert.ok(html.includes("Demo 体验"), "login view should expose a conventional demo entry");
+  assert.ok(html.includes('id="demo-button"'), "demo entry should have a wired button id");
+  assert.ok(html.includes('id="logout-button" class="logout-button"'), "logout should use a readable text button");
+  assert.ok(html.includes('aria-label="退出登录"'), "logout should name the action clearly");
+  assert.ok(html.includes(">退出</button>"), "logout should expose visible copy instead of an ambiguous icon");
   assert.ok(app.includes("is-login-shell"), "route rendering should switch the shell into login mode");
+  assert.ok(app.includes("store.enterDemo"), "demo entry should enter a local demo session");
   assert.ok(css.includes(".app-shell.is-login-shell .app-sidebar"), "login mode should hide workspace navigation");
   assert.ok(css.includes(".login-page"), "login page should have its own layout rules");
+  assert.ok(css.includes(".auth-demo-button"), "demo entry should align with the auth form");
+  assert.ok(css.includes(".logout-button"), "logout should have a dedicated readable button style");
 });
 
 test("auth screen separates login and registration instead of asking for an access code", async () => {
@@ -68,7 +134,14 @@ test("auth screen separates login and registration instead of asking for an acce
 
   assert.ok(html.includes("注册账号"), "auth copy should expose registration");
   assert.ok(html.includes("登录"), "auth copy should expose login");
+  assert.ok(html.includes("现在看"), "visible item status should use natural Chinese copy");
+  assert.ok(html.includes("先放着"), "visible parking status should use natural Chinese copy");
+  assert.ok(html.includes("已完成"), "visible done status should use natural Chinese copy");
   assert.equal(html.includes("访问码"), false, "auth copy should not mention access code");
+  assert.equal(html.includes("Active / Parking / Done"), false, "visible status summary should not use internal enum labels");
+  assert.equal(html.includes(">Active<"), false, "active tab should not expose internal enum labels");
+  assert.equal(html.includes(">Parking<"), false, "parking tab should not expose internal enum labels");
+  assert.equal(html.includes(">Done<"), false, "done tab should not expose internal enum labels");
   assert.ok(app.includes("store.register"), "runtime should create accounts through register");
   assert.ok(app.includes("store.login"), "runtime should enter existing accounts through login");
   assert.equal(app.includes("accessCodeInput"), false, "runtime should not use access-code naming");

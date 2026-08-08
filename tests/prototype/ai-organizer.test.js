@@ -57,6 +57,23 @@ test("organizeThoughtsWithAi returns a normalized valid AI-shaped response", asy
   assert.equal(result.meta.modelBehavior, "ai");
 });
 
+test("organizeThoughtsWithAi passes the resplit strategy to the AI client", async () => {
+  let request = null;
+
+  await organizeThoughtsWithAi(rawText, {
+    strategy: "missing",
+    aiClient: async (payload) => {
+      request = payload;
+      return JSON.stringify(buildValidAiResponse());
+    },
+  });
+
+  assert.deepEqual(request, {
+    rawText,
+    strategy: "missing",
+  });
+});
+
 test("organizeThoughtsWithAi can use local fast mode for simple input without calling AI", async () => {
   let aiCalled = false;
 
@@ -171,6 +188,62 @@ test("createLocalSemanticResult splits local model slowness, login check, and po
   assert.equal(getOrganizedResultSaveBlocker(result, rawText), null);
 });
 
+test("createLocalSemanticResult applies a finer strategy to regenerated local steps", () => {
+  const defaultResult = createLocalSemanticResult("得尽快更新领英，之后找人connect");
+  const finerResult = createLocalSemanticResult("得尽快更新领英，之后找人connect", { strategy: "finer" });
+
+  assert.deepEqual(defaultResult.items.map((item) => item.title), ["更新领英", "联系目标人脉"]);
+  assert.deepEqual(finerResult.items.map((item) => item.title), ["更新领英", "联系目标人脉"]);
+  assert.notDeepEqual(finerResult.items[0].focusSteps, defaultResult.items[0].focusSteps);
+  assert.deepEqual(finerResult.items[0].focusSteps, [
+    "打开领英个人主页",
+    "进入个人资料编辑",
+    "补最新经历或项目",
+    "保存后检查展示效果",
+  ]);
+  assert.deepEqual(finerResult.items[1].focusSteps, [
+    "列出一个想联系的人",
+    "打开领英搜索姓名",
+    "写一句简短邀请",
+    "发送后记录对方状态",
+  ]);
+});
+
+test("createLocalSemanticResult makes every resplit strategy visibly different", () => {
+  const rawText = "牙医还没约，周末整理房间，保险那个事也要看，小王消息没回";
+  const defaultResult = createLocalSemanticResult(rawText);
+  const sequenceResult = createLocalSemanticResult(rawText, { strategy: "sequence" });
+  const finerResult = createLocalSemanticResult(rawText, { strategy: "finer" });
+  const missingResult = createLocalSemanticResult(rawText, { strategy: "missing" });
+
+  assert.equal(sequenceResult.items[0].reason.includes("按你写下的顺序"), true);
+  assert.notEqual(sequenceResult.items[0].reason, defaultResult.items[0].reason);
+  assert.notEqual(finerResult.items[0].nextStep, defaultResult.items[0].nextStep);
+  assert.equal(finerResult.items[0].focusSteps.length > defaultResult.items[0].focusSteps.length, true);
+  assert.equal(missingResult.items[0].nextStep.includes("检查"), true);
+  assert.notEqual(missingResult.items[0].nextStep, finerResult.items[0].nextStep);
+  assert.equal(getOrganizedResultSaveBlocker(sequenceResult, rawText), null);
+  assert.equal(getOrganizedResultSaveBlocker(finerResult, rawText), null);
+  assert.equal(getOrganizedResultSaveBlocker(missingResult, rawText), null);
+});
+
+test("createLocalSemanticResult applies resplit strategy to structured local fast results", () => {
+  const rawText = [
+    "P0 稳定版自我介绍和项目口径",
+    "P1 外企岗位检索提醒",
+    "P2 Dify 展示案例",
+  ].join("\n");
+  const defaultResult = createLocalSemanticResult(rawText);
+  const finerResult = createLocalSemanticResult(rawText, { strategy: "finer" });
+  const missingResult = createLocalSemanticResult(rawText, { strategy: "missing" });
+
+  assert.equal(defaultResult.meta.modelBehavior, "local_semantic_fast");
+  assert.equal(finerResult.meta.resplitStrategy, "finer");
+  assert.notEqual(finerResult.items[0].nextStep, defaultResult.items[0].nextStep);
+  assert.equal(missingResult.items[0].nextStep.includes("检查"), true);
+  assert.notEqual(missingResult.items[0].nextStep, finerResult.items[0].nextStep);
+});
+
 const everydayNaturalLanguageCases = [
   {
     name: "family reminder, bill, and kitchen cleanup",
@@ -231,6 +304,21 @@ const everydayNaturalLanguageCases = [
     name: "travel preparation and balcony laundry",
     rawText: "我下周要出门，身份证不知道放哪了，行李箱也还没收，顺便想把阳台衣服拿进来。",
     titles: ["找身份证", "收拾行李箱", "收阳台衣服"],
+  },
+  {
+    name: "ordered tasks with casual urgency wording",
+    rawText: "牙医还没约，然后得尽快更新领英了。",
+    titles: ["预约牙医", "更新领英"],
+  },
+  {
+    name: "ordered linkedin update and networking",
+    rawText: "得尽快更新领英，之后找人connect",
+    titles: ["更新领英", "联系目标人脉"],
+  },
+  {
+    name: "product marketing and localization tasks",
+    rawText: "更新领英，把MindFlow制作宣传视频或直接小红书宣传文案，给MindFlow增加英文多语言",
+    titles: ["更新领英", "制作 MindFlow 宣传内容", "增加 MindFlow 英文多语言"],
   },
 ];
 
