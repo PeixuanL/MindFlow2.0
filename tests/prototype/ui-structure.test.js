@@ -82,6 +82,10 @@ test("home sidebar is a priority action preview with source-aware detail return"
   assert.ok(app.includes("getItemPriorityScore(item)"), "home priority preview should use deadline-aware priority scoring");
   assert.ok(css.includes(".row-text .row-deadline"), "home rows should have a dedicated deadline reminder style");
   assert.ok(css.includes("resize: none"), "home capture input should not be draggable enough to hide suggestion actions");
+  assert.ok(css.includes("height: clamp(116px, 15svh, 176px)"), "desktop home capture input should expand with available vertical space");
+  assert.ok(css.includes(".home-primary .suggestion-section:not(.is-hidden)"), "home suggestion flex layout should not override hidden card state");
+  assert.ok(css.includes(".home-primary .suggestion-section .action-row"), "home suggestion actions should be bottom-aligned within the recommendation card");
+  assert.ok(css.includes("margin-top: auto"), "home suggestion action row should absorb empty card space above the buttons");
   assert.ok(html.includes('id="status-message" class="sr-only"'), "home suggestion safety copy should not occupy visible card space");
   assert.equal(css.includes("scrollbar-gutter: stable"), false, "home primary column should not reserve a visible scrollbar gutter");
   assert.ok(css.includes("font-size: 38px"), "desktop home title should be quieter than the earlier oversized hero");

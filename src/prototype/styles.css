@@ -1440,7 +1440,7 @@ h1 {
   }
 
   .thought-input-shell .thought-input {
-    height: clamp(92px, 11svh, 116px);
+    height: clamp(116px, 15svh, 176px);
     min-height: 0;
     font-size: 16px;
   }
@@ -1457,6 +1457,16 @@ h1 {
 
   .suggestion-section h2 {
     font-size: 24px;
+  }
+
+  .home-primary .suggestion-section:not(.is-hidden) {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .home-primary .suggestion-section .action-row {
+    margin-top: auto;
   }
 
   .action-row {
