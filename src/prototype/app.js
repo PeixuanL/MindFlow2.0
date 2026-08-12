@@ -270,9 +270,6 @@ const copy = {
     "card.complete": "完成",
     "card.restore": "恢复",
     "list.loadMore": ({ count }) => `再显示 ${count} 条`,
-    "list.previous": "上一页",
-    "list.next": "下一页",
-    "list.pageStatus": ({ current, total }) => `${current} / ${total}`,
     "time.justNow": "刚刚",
     "time.minutesAgo": ({ count }) => `${count} 分钟前`,
     "time.hoursAgo": ({ count }) => `${count} 小时前`,
@@ -497,9 +494,6 @@ const copy = {
     "card.complete": "Done",
     "card.restore": "Restore",
     "list.loadMore": ({ count }) => `Show ${count} more`,
-    "list.previous": "Previous",
-    "list.next": "Next",
-    "list.pageStatus": ({ current, total }) => `${current} / ${total}`,
     "time.justNow": "Just now",
     "time.minutesAgo": ({ count }) => `${count} min ago`,
     "time.hoursAgo": ({ count }) => `${count} hr ago`,
@@ -701,12 +695,11 @@ let recentOrganizedRawText = "";
 let previousDetailStepsSnapshot = null;
 let voiceController = null;
 let authMode = "login";
-const DESKTOP_ITEM_PAGE_SIZE = 4;
-const MOBILE_ITEM_PAGE_SIZE = 2;
-const itemPageIndexes = {
-  active: 0,
-  parking: 0,
-  done: 0,
+const ITEM_PAGE_SIZE = 100;
+const itemVisibleLimits = {
+  active: ITEM_PAGE_SIZE,
+  parking: ITEM_PAGE_SIZE,
+  done: ITEM_PAGE_SIZE,
 };
 
 const resplitStrategyLabels = {
@@ -937,6 +930,9 @@ function showView(name, { activeNav = name } = {}) {
   appShell.classList.remove("is-auth-checking");
   Object.values(views).forEach((view) => view.classList.add("is-hidden"));
   show(views[name]);
+  Object.keys(views).forEach((viewName) => {
+    appShell.classList.toggle(`is-${viewName}-view`, viewName === name);
+  });
   appShell.classList.toggle("is-login-shell", name === "login");
   topActions.classList.toggle("is-hidden", name === "login");
   const displayName = currentUser ? currentUser.name : t("today");
@@ -1203,7 +1199,7 @@ function createStepCheckRow(item, stepIndex, step) {
 
 function renderStepChecklist(listElement, item, steps = item.steps) {
   listElement.replaceChildren(
-    ...steps.map((step, index) => {
+    ...getDisplayStepEntries(item, steps).map(({ step, index }) => {
       const listItem = document.createElement("li");
       listItem.append(createStepCheckRow(item, index, step));
       return listItem;
@@ -1214,12 +1210,14 @@ function renderStepChecklist(listElement, item, steps = item.steps) {
 function renderRecommendation(item) {
   const deadlineLabel = getDeadlineLabel(item);
   suggestionLabel.textContent = t("suggestion.label");
-  priorityChip.textContent = priorityLabels[item.priority];
-  suggestionDeadlineChip.textContent = deadlineLabel;
-  suggestionDeadlineChip.classList.toggle("is-hidden", !deadlineLabel);
+  priorityChip.textContent = "";
+  priorityChip.classList.add("is-hidden");
+  suggestionDeadlineChip.textContent = "";
+  suggestionDeadlineChip.classList.add("is-hidden");
   suggestionTitle.textContent = item.title;
-  suggestionReason.textContent = item.reason || t("suggestion.defaultReason");
-  suggestionNextStep.textContent = item.nextStep || item.steps[0] || t("suggestion.defaultStep");
+  suggestionReason.textContent = deadlineLabel;
+  suggestionReason.classList.toggle("is-hidden", !deadlineLabel);
+  suggestionNextStep.textContent = cleanUiDisplayText(item.nextStep) || getDisplayStepEntries(item)[0]?.step || t("suggestion.defaultStep");
   show(suggestionSection);
 }
 
@@ -1477,10 +1475,30 @@ function hasRecentOrganizedPreview() {
   return getRecentOrganizedItems(getUserState().items).length > 0;
 }
 
+const INTERNAL_SOURCE_REF_ONLY_PATTERN = /^(?:su|u|unit|source[-_ ]?unit)[-_]?\d+$/iu;
+const LEADING_INTERNAL_SOURCE_REF_PATTERN = /^(?:(?:su|u|unit|source[-_ ]?unit)[-_]?\d+\s*[,，、:：;；-]?\s*)+/iu;
+
+function cleanUiDisplayText(value) {
+  const original = String(value ?? "").trim();
+  if (INTERNAL_SOURCE_REF_ONLY_PATTERN.test(original)) {
+    return "";
+  }
+
+  return original.replace(LEADING_INTERNAL_SOURCE_REF_PATTERN, "").trim();
+}
+
+function getDisplayStepEntries(item, steps = item.steps) {
+  return (Array.isArray(steps) ? steps : [])
+    .map((step, index) => ({
+      index,
+      step: cleanUiDisplayText(step),
+    }))
+    .filter(({ step }) => step);
+}
+
 function getNextOpenStep(item) {
-  const steps = Array.isArray(item.steps) ? item.steps : [];
-  const nextStep = steps.find((_, index) => !isStepCompleted(item, index));
-  return nextStep || item.nextStep || t("detail.defaultNextOpenStep");
+  const nextStepEntry = getDisplayStepEntries(item).find(({ index }) => !isStepCompleted(item, index));
+  return nextStepEntry?.step || cleanUiDisplayText(item.nextStep) || t("detail.defaultNextOpenStep");
 }
 
 function createHomeThoughtRow(item, { completed = false } = {}) {
@@ -1642,7 +1660,7 @@ function createItemCard(item) {
 
   const steps = document.createElement("ol");
   steps.className = "preview-steps";
-  item.steps.slice(0, 3).forEach((step, index) => {
+  getDisplayStepEntries(item).slice(0, 3).forEach(({ step, index }) => {
     const li = document.createElement("li");
     li.append(createStepCheckRow(item, index, step));
     steps.append(li);
@@ -1694,40 +1712,14 @@ function renderList(container, items, emptyText) {
   container.replaceChildren(...(items.length ? items.map(createItemCard) : [createEmptyState(emptyText)]));
 }
 
-function getItemPageSize() {
-  if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 759px)").matches) {
-    return MOBILE_ITEM_PAGE_SIZE;
-  }
-
-  return DESKTOP_ITEM_PAGE_SIZE;
-}
-
-function removeListPager(panel) {
-  panel.querySelector(".list-pager")?.remove();
-}
-
-function createListPager(status, currentPage, pageCount) {
-  const pager = document.createElement("div");
-  pager.className = "list-pager";
-
-  const previousButton = createButton(t("list.previous"), "secondary-button list-page-button", () => {
-    itemPageIndexes[status] = Math.max(0, currentPage - 1);
+function appendLoadMoreControl(container, status, remainingCount) {
+  const nextCount = Math.min(ITEM_PAGE_SIZE, remainingCount);
+  const loadMoreButton = createButton(t("list.loadMore", { count: nextCount }), "secondary-button list-load-more", () => {
+    itemVisibleLimits[status] += ITEM_PAGE_SIZE;
     renderItems();
   });
-  previousButton.disabled = currentPage === 0;
 
-  const pageStatus = document.createElement("span");
-  pageStatus.className = "list-page-status";
-  pageStatus.textContent = t("list.pageStatus", { current: currentPage + 1, total: pageCount });
-
-  const nextButton = createButton(t("list.next"), "secondary-button list-page-button", () => {
-    itemPageIndexes[status] = Math.min(pageCount - 1, currentPage + 1);
-    renderItems();
-  });
-  nextButton.disabled = currentPage >= pageCount - 1;
-
-  pager.append(previousButton, pageStatus, nextButton);
-  return pager;
+  container.append(loadMoreButton);
 }
 
 const listContainersByStatus = {
@@ -1758,28 +1750,20 @@ function renderItems() {
   showView("items");
   manualAddError.textContent = "";
   const items = getUserState().items;
-  const pageSize = getItemPageSize();
   renderHomeSidebar(items);
   renderTabs();
   Object.entries(listContainersByStatus).forEach(([status, container]) => {
-    const panel = itemPanels[status];
-    removeListPager(panel);
-
     if (status !== activeItemTab) {
       container.replaceChildren();
       return;
     }
 
     const statusItems = items.filter((item) => item.status === status);
-    const pageCount = Math.max(1, Math.ceil(statusItems.length / pageSize));
-    const currentPage = Math.min(itemPageIndexes[status] ?? 0, pageCount - 1);
-    itemPageIndexes[status] = currentPage;
-    const pageStart = currentPage * pageSize;
-    const visibleItems = statusItems.slice(pageStart, pageStart + pageSize);
+    const visibleItems = statusItems.slice(0, itemVisibleLimits[status]);
 
     renderList(container, visibleItems, emptyTextByStatus[status]());
-    if (statusItems.length > pageSize) {
-      panel.append(createListPager(status, currentPage, pageCount));
+    if (visibleItems.length < statusItems.length) {
+      appendLoadMoreControl(container, status, statusItems.length - visibleItems.length);
     }
   });
 }

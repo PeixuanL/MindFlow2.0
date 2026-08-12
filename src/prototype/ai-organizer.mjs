@@ -10,6 +10,8 @@ const DEFAULT_META = {
 const PRESSURE_LANGUAGE_PATTERN = /必须|赶紧|立刻|拖太久|否则|应该早就/;
 const TITLE_FILLER_PATTERN = /^(我想|我觉得|我需要|我得|我要|得尽快|得赶紧|得|要尽快|尽快|赶紧|赶快|想要|想|然后|同时|顺便|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)+/u;
 const DISPLAY_FILLER_PATTERN = /(?:我感觉|我觉得|我想|我需要|我得|我要|得尽快|得赶紧|要尽快|尽快|赶紧|赶快|想要|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)/gu;
+const INTERNAL_SOURCE_REF_ONLY_PATTERN = /^(?:su|u|unit|source[-_ ]?unit)[-_]?\d+$/iu;
+const LEADING_INTERNAL_SOURCE_REF_PATTERN = /^(?:(?:su|u|unit|source[-_ ]?unit)[-_]?\d+\s*[,，、:：;；-]?\s*)+/iu;
 const TITLE_TIME_PATTERN = /(今天|今日|今晚|明天|后天|大后天|几小时后|几个小时后|[一二两三四五六七八九十0-9]+个?小时后|[一二两三四五六七八九十0-9]+天后|下周[一二三四五六日天]?|下个月|上午|中午|下午|晚上|早上|凌晨|今晚|明晚)/gu;
 const LOCAL_SEMANTIC_MAX_ITEMS = 5;
 const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
@@ -384,13 +386,23 @@ function cleanTaskTitle(title, timeHint, dueAt) {
 }
 
 function cleanDisplayText(text) {
-  const cleaned = String(text ?? "")
+  const original = String(text ?? "").trim();
+  if (INTERNAL_SOURCE_REF_ONLY_PATTERN.test(original)) {
+    return "";
+  }
+
+  const cleaned = original
+    .replace(LEADING_INTERNAL_SOURCE_REF_PATTERN, "")
     .replace(DISPLAY_FILLER_PATTERN, "")
     .replace(/\s{2,}/gu, " ")
     .replace(/^[，,\s、；;]+|[，,\s、；;]+$/gu, "")
     .trim();
 
-  return cleaned || String(text ?? "").trim();
+  return cleaned || original;
+}
+
+function cleanDisplayTextArray(values) {
+  return normalizeTextArray(values).map(cleanDisplayText).filter(hasText);
 }
 
 function fallback(rawText, fallbackOrganizer, reason) {
@@ -632,7 +644,7 @@ function normalizeSuggestion(suggestion, index) {
     title,
     reason: hasText(suggestion.reason) ? cleanDisplayText(suggestion.reason) : suggestion.reason,
     nextStep: hasText(suggestion.nextStep) ? cleanDisplayText(suggestion.nextStep) : suggestion.nextStep,
-    focusSteps: normalizeTextArray(suggestion.focusSteps).map(cleanDisplayText),
+    focusSteps: cleanDisplayTextArray(suggestion.focusSteps),
     source: hasText(suggestion.source) ? suggestion.source : suggestion.title,
     category: hasText(suggestion.category) ? suggestion.category : "unknown",
     energy: hasText(suggestion.energy) ? suggestion.energy : "unknown",
@@ -662,8 +674,11 @@ function isGenericNextStepText(value) {
 }
 
 function refineGenericSemanticSteps({ title, nextStep, focusSteps, evidenceTexts, options = {} }) {
-  if (!isGenericNextStepText(nextStep) && !focusSteps.some(isGenericNextStepText)) {
-    return { nextStep, focusSteps };
+  if (hasText(nextStep) && !isGenericNextStepText(nextStep) && !focusSteps.some(isGenericNextStepText)) {
+    return {
+      nextStep,
+      focusSteps: focusSteps.length > 0 ? focusSteps : [nextStep],
+    };
   }
 
   const units = normalizeTextArray(evidenceTexts);
@@ -696,7 +711,7 @@ function normalizeSemanticItem(item, index, recommendedNow, semanticUnits = [], 
   const refinedSteps = refineGenericSemanticSteps({
     title,
     nextStep: initialNextStep,
-    focusSteps: normalizeTextArray(initialFocusSteps).map(cleanDisplayText),
+    focusSteps: cleanDisplayTextArray(initialFocusSteps),
     evidenceTexts: [
       ...mentions,
       ...sourceUnitTexts,
@@ -705,8 +720,9 @@ function normalizeSemanticItem(item, index, recommendedNow, semanticUnits = [], 
     ],
     options,
   });
-  const source = hasText(item.source)
-    ? item.source.trim()
+  const cleanedSource = cleanDisplayText(item.source);
+  const source = hasText(cleanedSource)
+    ? cleanedSource
     : mentions.join("；") || sourceUnitTexts.filter(Boolean).join("；") || title;
 
   return {
@@ -716,7 +732,9 @@ function normalizeSemanticItem(item, index, recommendedNow, semanticUnits = [], 
     title,
     reason: hasText(item.reason) ? cleanDisplayText(item.reason) : cleanDisplayText(recommendedNow?.reason),
     nextStep: refinedSteps.nextStep,
-    focusSteps: (refinedSteps.focusSteps.length > 0 ? normalizeTextArray(refinedSteps.focusSteps) : normalizeTextArray([refinedSteps.nextStep])).map(cleanDisplayText),
+    focusSteps: refinedSteps.focusSteps.length > 0
+      ? cleanDisplayTextArray(refinedSteps.focusSteps)
+      : cleanDisplayTextArray([refinedSteps.nextStep]),
     source,
     category: hasText(item.category) ? item.category : hasText(item.type) ? item.type : "unknown",
     energy: hasText(item.energy) ? item.energy : "unknown",

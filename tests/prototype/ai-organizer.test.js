@@ -797,6 +797,61 @@ test("normalizeAiResult converts semantic items into UI suggestions with source 
   assert.deepEqual(result.coverageCheck.coveredUnitIds, ["u1", "u2", "u3"]);
 });
 
+test("normalizeAiResult strips internal semantic unit ids from visible task text", () => {
+  const result = normalizeAiResult({
+    status: "organized",
+    semanticUnits: [
+      { id: "su1", text: "发布小红书帖子", role: "task" },
+      { id: "su2", text: "补上手帐", role: "task" },
+    ],
+    items: [
+      {
+        id: "item_1",
+        title: "补上手帐",
+        sourceUnitIds: ["su2"],
+        mentions: ["补上手帐"],
+        priority: "high",
+        assignTo: "active",
+        reason: "今天要完成。",
+        nextStep: "su2，先完成一处可验证改动。",
+        focusSteps: ["su2", "su2，先完成一处可验证改动。"],
+        source: "su2",
+      },
+      {
+        id: "item_2",
+        title: "发布小红书帖子",
+        sourceUnitIds: ["su1"],
+        mentions: ["发布小红书帖子"],
+        priority: "medium",
+        assignTo: "active",
+        reason: "可以今天处理。",
+        nextStep: "su1，先写帖子标题。",
+        focusSteps: ["su1"],
+        source: "su1",
+      },
+    ],
+    recommendedNow: {
+      itemId: "item_1",
+      title: "补上手帐",
+      reason: "今天要完成。",
+      nextStep: "su2，先完成一处可验证改动。",
+    },
+    coverageCheck: {
+      coveredUnitIds: ["su1", "su2"],
+      unmappedUnitIds: [],
+      possibleDuplicates: [],
+      needsClarification: [],
+    },
+  });
+
+  assert.equal(result.suggestion.nextStep, "先完成一处可验证改动。");
+  assert.deepEqual(result.suggestion.focusSteps, ["先完成一处可验证改动。"]);
+  assert.equal(result.suggestion.source, "补上手帐");
+  assert.equal(result.suggestions[1].nextStep, "先写帖子标题。");
+  assert.deepEqual(result.suggestions[1].focusSteps, ["先写帖子标题。"]);
+  assert.equal(result.suggestions[1].source, "发布小红书帖子");
+});
+
 test("organizeThoughtsWithAi accepts local model semantic output with completed status", async () => {
   const result = await organizeThoughtsWithAi("P0 准备面试资产", {
     aiClient: async () => ({
