@@ -48,9 +48,12 @@
 
       <div class="app-main">
         <header class="top-bar">
-          <div>
-            <p id="today-label" class="today-label">今天</p>
-            <div class="brand mobile-brand">MindFlow</div>
+          <div class="mobile-top-identity">
+            <div class="mobile-brand-row">
+              <div class="brand-mark small mobile-top-mark" aria-hidden="true">M</div>
+              <div class="brand mobile-brand">MindFlow</div>
+              <p id="today-label" class="today-label">今天</p>
+            </div>
           </div>
           <div class="top-utility-actions">
             <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch language" title="Switch language">EN</button>
@@ -136,7 +139,10 @@
             <section id="suggestion-section" class="suggestion-section is-hidden" aria-live="polite" aria-labelledby="suggestion-title">
               <div class="recommendation-meta">
                 <p class="eyebrow" id="suggestion-label">也许可以先看这个</p>
-                <span id="priority-chip">High</span>
+                <div class="recommendation-chips">
+                  <span id="suggestion-deadline-chip" class="deadline-chip is-hidden">今天截止</span>
+                  <span id="priority-chip">High</span>
+                </div>
               </div>
               <h2 id="suggestion-title">给牙医打电话预约</h2>
               <div class="next-step-panel" aria-label="下一步">

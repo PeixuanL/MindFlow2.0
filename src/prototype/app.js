@@ -61,6 +61,7 @@ const suggestionTitle = document.querySelector("#suggestion-title");
 const suggestionReason = document.querySelector("#suggestion-reason");
 const suggestionNextStep = document.querySelector("#suggestion-next-step");
 const priorityChip = document.querySelector("#priority-chip");
+const suggestionDeadlineChip = document.querySelector("#suggestion-deadline-chip");
 const focusTitle = document.querySelector("#focus-title");
 const focusPriority = document.querySelector("#focus-priority");
 const focusSteps = document.querySelector("#focus-steps");
@@ -1204,8 +1205,11 @@ function renderStepChecklist(listElement, item, steps = item.steps) {
 }
 
 function renderRecommendation(item) {
+  const deadlineLabel = getDeadlineLabel(item);
   suggestionLabel.textContent = t("suggestion.label");
   priorityChip.textContent = priorityLabels[item.priority];
+  suggestionDeadlineChip.textContent = deadlineLabel;
+  suggestionDeadlineChip.classList.toggle("is-hidden", !deadlineLabel);
   suggestionTitle.textContent = item.title;
   suggestionReason.textContent = item.reason || t("suggestion.defaultReason");
   suggestionNextStep.textContent = item.nextStep || item.steps[0] || t("suggestion.defaultStep");

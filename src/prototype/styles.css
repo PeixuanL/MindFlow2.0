@@ -117,6 +117,27 @@ textarea:disabled {
   line-height: 1.2;
 }
 
+.mobile-top-identity {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.mobile-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.mobile-top-mark {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
 .icon-button {
   display: grid;
   place-items: center;
@@ -278,6 +299,15 @@ h1 {
   padding: 20px;
 }
 
+.recommendation-chips {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
 .recommendation-meta span {
   flex: 0 0 auto;
   border-radius: 999px;
@@ -287,6 +317,13 @@ h1 {
   font-size: 12px;
   font-weight: 800;
   line-height: 1.2;
+}
+
+.recommendation-meta .deadline-chip {
+  border: 1px solid rgba(232, 139, 106, 0.16);
+  background: rgba(255, 245, 237, 0.72);
+  color: #9b6049;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset;
 }
 
 .eyebrow {
@@ -1746,11 +1783,29 @@ h1 {
     min-width: 0;
   }
 
-  .today-label,
-  .mobile-brand {
+  .mobile-brand-row .mobile-brand {
+    flex: 0 0 auto;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .today-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    border: 1px solid rgba(232, 139, 106, 0.12);
+    border-radius: 999px;
+    padding: 4px 9px;
+    background: rgba(255, 255, 255, 0.34);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.42) inset;
+  }
+
+  .thought-input-shell .thought-input {
+    height: 84px;
   }
 
   .top-actions {
@@ -1788,6 +1843,41 @@ h1 {
     border-color: rgba(232, 139, 106, 0.48);
     background: var(--coral-soft);
     color: var(--coral);
+  }
+
+  .recommendation-meta {
+    align-items: flex-start;
+  }
+
+  .recommendation-chips {
+    max-width: 54%;
+  }
+
+  #home-view {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #home-view .home-primary {
+    align-content: start;
+    grid-template-rows: auto auto auto;
+    padding-bottom: 8px;
+  }
+
+  #items-view {
+    display: block;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #items-view .list-section {
+    min-height: auto;
+  }
+
+  #items-view .item-list {
+    overflow: visible;
+    padding-bottom: 18px;
+    scroll-padding-bottom: 18px;
   }
 }
 
