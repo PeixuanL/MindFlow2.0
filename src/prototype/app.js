@@ -270,6 +270,9 @@ const copy = {
     "card.complete": "完成",
     "card.restore": "恢复",
     "list.loadMore": ({ count }) => `再显示 ${count} 条`,
+    "list.previous": "上一页",
+    "list.next": "下一页",
+    "list.pageStatus": ({ current, total }) => `${current} / ${total}`,
     "time.justNow": "刚刚",
     "time.minutesAgo": ({ count }) => `${count} 分钟前`,
     "time.hoursAgo": ({ count }) => `${count} 小时前`,
@@ -494,6 +497,9 @@ const copy = {
     "card.complete": "Done",
     "card.restore": "Restore",
     "list.loadMore": ({ count }) => `Show ${count} more`,
+    "list.previous": "Previous",
+    "list.next": "Next",
+    "list.pageStatus": ({ current, total }) => `${current} / ${total}`,
     "time.justNow": "Just now",
     "time.minutesAgo": ({ count }) => `${count} min ago`,
     "time.hoursAgo": ({ count }) => `${count} hr ago`,
@@ -695,11 +701,12 @@ let recentOrganizedRawText = "";
 let previousDetailStepsSnapshot = null;
 let voiceController = null;
 let authMode = "login";
-const ITEM_PAGE_SIZE = 100;
-const itemVisibleLimits = {
-  active: ITEM_PAGE_SIZE,
-  parking: ITEM_PAGE_SIZE,
-  done: ITEM_PAGE_SIZE,
+const DESKTOP_ITEM_PAGE_SIZE = 4;
+const MOBILE_ITEM_PAGE_SIZE = 2;
+const itemPageIndexes = {
+  active: 0,
+  parking: 0,
+  done: 0,
 };
 
 const resplitStrategyLabels = {
@@ -1687,14 +1694,40 @@ function renderList(container, items, emptyText) {
   container.replaceChildren(...(items.length ? items.map(createItemCard) : [createEmptyState(emptyText)]));
 }
 
-function appendLoadMoreControl(container, status, remainingCount) {
-  const nextCount = Math.min(ITEM_PAGE_SIZE, remainingCount);
-  const loadMoreButton = createButton(t("list.loadMore", { count: nextCount }), "secondary-button list-load-more", () => {
-    itemVisibleLimits[status] += ITEM_PAGE_SIZE;
+function getItemPageSize() {
+  if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 759px)").matches) {
+    return MOBILE_ITEM_PAGE_SIZE;
+  }
+
+  return DESKTOP_ITEM_PAGE_SIZE;
+}
+
+function removeListPager(panel) {
+  panel.querySelector(".list-pager")?.remove();
+}
+
+function createListPager(status, currentPage, pageCount) {
+  const pager = document.createElement("div");
+  pager.className = "list-pager";
+
+  const previousButton = createButton(t("list.previous"), "secondary-button list-page-button", () => {
+    itemPageIndexes[status] = Math.max(0, currentPage - 1);
     renderItems();
   });
+  previousButton.disabled = currentPage === 0;
 
-  container.append(loadMoreButton);
+  const pageStatus = document.createElement("span");
+  pageStatus.className = "list-page-status";
+  pageStatus.textContent = t("list.pageStatus", { current: currentPage + 1, total: pageCount });
+
+  const nextButton = createButton(t("list.next"), "secondary-button list-page-button", () => {
+    itemPageIndexes[status] = Math.min(pageCount - 1, currentPage + 1);
+    renderItems();
+  });
+  nextButton.disabled = currentPage >= pageCount - 1;
+
+  pager.append(previousButton, pageStatus, nextButton);
+  return pager;
 }
 
 const listContainersByStatus = {
@@ -1725,20 +1758,28 @@ function renderItems() {
   showView("items");
   manualAddError.textContent = "";
   const items = getUserState().items;
+  const pageSize = getItemPageSize();
   renderHomeSidebar(items);
   renderTabs();
   Object.entries(listContainersByStatus).forEach(([status, container]) => {
+    const panel = itemPanels[status];
+    removeListPager(panel);
+
     if (status !== activeItemTab) {
       container.replaceChildren();
       return;
     }
 
     const statusItems = items.filter((item) => item.status === status);
-    const visibleItems = statusItems.slice(0, itemVisibleLimits[status]);
+    const pageCount = Math.max(1, Math.ceil(statusItems.length / pageSize));
+    const currentPage = Math.min(itemPageIndexes[status] ?? 0, pageCount - 1);
+    itemPageIndexes[status] = currentPage;
+    const pageStart = currentPage * pageSize;
+    const visibleItems = statusItems.slice(pageStart, pageStart + pageSize);
 
     renderList(container, visibleItems, emptyTextByStatus[status]());
-    if (visibleItems.length < statusItems.length) {
-      appendLoadMoreControl(container, status, statusItems.length - visibleItems.length);
+    if (statusItems.length > pageSize) {
+      panel.append(createListPager(status, currentPage, pageCount));
     }
   });
 }
