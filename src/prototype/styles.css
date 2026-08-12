@@ -666,10 +666,15 @@ h1 {
 }
 
 .list-section h2 {
-  margin: 0 0 8px;
-  color: var(--coral);
-  font-size: 15px;
-  line-height: 1.35;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .item-list,
@@ -861,8 +866,16 @@ h1 {
 }
 
 @media (max-width: 759px) {
+  html,
   body {
     overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  html,
+  body {
+    height: auto;
+    min-height: 100svh;
   }
 
   .deadline-input-group {
@@ -870,8 +883,18 @@ h1 {
   }
 
   .app-shell {
+    width: 100%;
+    height: auto;
+    min-height: 100svh;
     margin: 0;
+    overflow: visible;
     padding: env(safe-area-inset-top, 0px) 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .app-main,
+  .view-section {
+    height: auto;
+    overflow: visible;
   }
 
   .top-bar {
@@ -1626,7 +1649,8 @@ h1 {
 
   #items-view {
     display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    overflow: hidden;
   }
 
   #detail-view {
@@ -1757,9 +1781,10 @@ h1 {
 @media (max-width: 979px) {
   #items-view {
     display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
     height: 100%;
     min-height: 0;
+    overflow: hidden;
   }
 
   #detail-view {
@@ -1805,7 +1830,8 @@ h1 {
   }
 
   .thought-input-shell .thought-input {
-    height: 84px;
+    height: 112px;
+    overflow: hidden;
   }
 
   .top-actions {
@@ -1854,8 +1880,13 @@ h1 {
   }
 
   #home-view {
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: visible;
+  }
+
+  .app-main,
+  .view-section {
+    height: auto;
+    overflow: visible;
   }
 
   #home-view .home-primary {
@@ -1865,19 +1896,39 @@ h1 {
   }
 
   #items-view {
-    display: block;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    height: calc(100svh - 81px);
+    min-height: 0;
+    overflow: hidden;
   }
 
   #items-view .list-section {
-    min-height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #items-view .item-card {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  #items-view .item-card h3 {
+    font-size: 17px;
+  }
+
+  #items-view .preview-steps {
+    display: none;
+  }
+
+  #items-view .card-controls {
+    gap: 5px;
   }
 
   #items-view .item-list {
-    overflow: visible;
+    overflow: auto;
     padding-bottom: 18px;
-    scroll-padding-bottom: 18px;
+    overscroll-behavior: contain;
   }
 }
 
