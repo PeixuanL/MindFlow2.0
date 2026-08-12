@@ -6,7 +6,7 @@ import {
 import { createMindFlowCloudStore } from "./cloud-store.mjs";
 import { getLocalDayDelta, parseDeadlineValue } from "./deadline-utils.mjs";
 import { getItemPriorityScore, priorityLabels } from "./store.mjs";
-import { createVoiceInputController } from "./voice-input.mjs";
+import { createVoiceInputController } from "./voice-input.mjs?v=20260812-voice-simplified";
 
 const isLocalPrototypeHost =
   window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
@@ -48,6 +48,7 @@ const inputCount = document.querySelector("#thought-input-count");
 const organizeButton = document.querySelector("#organize-button");
 const voiceButton = document.querySelector("#voice-button");
 const voiceStatus = document.querySelector("#voice-status");
+const voiceWaveform = document.querySelector("#voice-waveform");
 const captureError = document.querySelector("#capture-error");
 const statusMessage = document.querySelector("#status-message");
 const suggestionSection = document.querySelector("#suggestion-section");
@@ -128,6 +129,9 @@ const detailSaveButton = document.querySelector("#detail-save-button");
 const LANGUAGE_STORAGE_KEY = "mindflow:language";
 const DEFAULT_LANGUAGE = "zh-CN";
 const LANGUAGE_OPTIONS = ["zh-CN", "en-US"];
+const TRANSFORMERS_JS_CDN_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0";
+const OPENCC_JS_CDN_URL = "https://cdn.jsdelivr.net/npm/opencc-js@1.4.1/dist/esm/full.js";
+const WHISPER_MODEL = "onnx-community/whisper-base";
 const copy = {
   "zh-CN": {
     "document.title": "MindFlow2.0 Prototype",
@@ -335,16 +339,23 @@ const copy = {
     "voice.localOnlyUnavailable": "为了不上传语音，这个浏览器暂时关闭内置语音。可以用系统键盘麦克风输入。",
     "voice.idle": "语音输入",
     "voice.stop": "停止输入",
-    "voice.listening": "正在听，可以连续说。识别不准也能直接改文字。",
-    "voice.stopped": "语音输入已停止。",
-    "voice.appended": "已经放进输入框，可以继续说。",
+    "voice.listening": "",
+    "voice.stopped": "",
+    "voice.appended": "",
     "voice.startFailed": "刚才没有启动成功，可以再试一次。",
     "voice.unclear": "刚才没有听清，可以再试一次。",
     "voice.notAllowed": "需要允许浏览器使用麦克风。",
     "voice.noMicrophone": "没有找到可用的麦克风。",
     "voice.localLanguageUnavailable": "这个浏览器还没有可用的中文本机语音包。可以用系统键盘麦克风输入。",
     "voice.interimPrefix": "识别中：",
-    "voice.paused": "已暂停，点语音输入可以继续。",
+    "voice.paused": "",
+    "voice.recording": "正在录音，停止后统一转成文字。",
+    "voice.loadingModel": "首次加载语音模型，可能要等一下。",
+    "voice.finalizing": "正在转成文字…",
+    "voice.finalAdded": "语音文字已放进输入框，可以直接修改。",
+    "voice.finalFailed": "高质量转写失败，可以再试一次。",
+    "voice.previewFallbackAdded": "高质量转写失败，已保留临时识别。",
+    "voice.recordingUnavailable": "这个浏览器暂时不能录音转写。可以用系统键盘麦克风输入。",
   },
   "en-US": {
     "document.title": "MindFlow 2.0 Prototype",
@@ -552,16 +563,23 @@ const copy = {
     "voice.localOnlyUnavailable": "To avoid uploading voice, built-in voice is off here. You can use the system keyboard microphone.",
     "voice.idle": "Voice input",
     "voice.stop": "Stop input",
-    "voice.listening": "Listening. You can keep talking and edit the text afterward.",
-    "voice.stopped": "Voice input stopped.",
-    "voice.appended": "Added to the input. You can keep talking.",
+    "voice.listening": "",
+    "voice.stopped": "",
+    "voice.appended": "",
     "voice.startFailed": "Voice input did not start. Try again.",
     "voice.unclear": "I did not catch that. Try again.",
     "voice.notAllowed": "Allow microphone access in the browser.",
     "voice.noMicrophone": "No available microphone was found.",
     "voice.localLanguageUnavailable": "This browser does not have the selected local voice language. You can use the system keyboard microphone.",
     "voice.interimPrefix": "Hearing: ",
-    "voice.paused": "Paused. Tap voice input to continue.",
+    "voice.paused": "",
+    "voice.recording": "Recording. I will transcribe everything after you stop.",
+    "voice.loadingModel": "Loading the voice model for the first time. This can take a moment.",
+    "voice.finalizing": "Turning speech into text...",
+    "voice.finalAdded": "Voice text was added. You can edit it before organizing.",
+    "voice.finalFailed": "High-quality transcription failed. Try again.",
+    "voice.previewFallbackAdded": "High-quality transcription failed, so I kept the live preview text.",
+    "voice.recordingUnavailable": "This browser cannot record for transcription yet. You can use the system keyboard microphone.",
   },
 };
 
@@ -764,6 +782,13 @@ function getVoiceMessages() {
     localLanguageUnavailable: t("voice.localLanguageUnavailable"),
     interimPrefix: t("voice.interimPrefix"),
     paused: t("voice.paused"),
+    recording: t("voice.recording"),
+    loadingModel: t("voice.loadingModel"),
+    finalizing: t("voice.finalizing"),
+    finalAdded: t("voice.finalAdded"),
+    finalFailed: t("voice.finalFailed"),
+    previewFallbackAdded: t("voice.previewFallbackAdded"),
+    recordingUnavailable: t("voice.recordingUnavailable"),
   };
 }
 
@@ -1028,6 +1053,96 @@ function updateInputCount() {
   inputCount.textContent = `${input.value.length}/500`;
 }
 
+let transformersImportPromise = null;
+let whisperTranscriberPromise = null;
+let openccImportPromise = null;
+let simplifiedChineseConverterPromise = null;
+
+function getWhisperLanguage(language = currentLanguage) {
+  return language === "en-US" ? "english" : "chinese";
+}
+
+async function importTransformers() {
+  if (!transformersImportPromise) {
+    transformersImportPromise = import(TRANSFORMERS_JS_CDN_URL);
+  }
+
+  return transformersImportPromise;
+}
+
+async function importOpenCc() {
+  if (!openccImportPromise) {
+    openccImportPromise = import(OPENCC_JS_CDN_URL);
+  }
+
+  return openccImportPromise;
+}
+
+async function getSimplifiedChineseConverter() {
+  if (!simplifiedChineseConverterPromise) {
+    simplifiedChineseConverterPromise = importOpenCc()
+      .then((module) => {
+        const OpenCC = module.default ?? module;
+        return OpenCC.Converter({ from: "t", to: "cn" });
+      })
+      .catch((error) => {
+        simplifiedChineseConverterPromise = null;
+        throw error;
+      });
+  }
+
+  return simplifiedChineseConverterPromise;
+}
+
+async function normalizeVoiceTranscript(text, { language = currentLanguage } = {}) {
+  if (language !== "zh-CN") {
+    return text;
+  }
+
+  try {
+    const converter = await getSimplifiedChineseConverter();
+    return converter(text);
+  } catch {
+    return text;
+  }
+}
+
+async function createWhisperPipeline(device) {
+  const { pipeline } = await importTransformers();
+  return pipeline("automatic-speech-recognition", WHISPER_MODEL, { device });
+}
+
+async function createBrowserWhisperTranscriber() {
+  if (!whisperTranscriberPromise) {
+    whisperTranscriberPromise = (async () => {
+      const canUseWebGpu = Boolean(navigator.gpu);
+      let transcriber = null;
+
+      if (canUseWebGpu) {
+        try {
+          transcriber = await createWhisperPipeline("webgpu");
+        } catch {
+          transcriber = null;
+        }
+      }
+
+      if (!transcriber) {
+        transcriber = await createWhisperPipeline("wasm");
+      }
+
+      return (audioUrl, options = {}) => transcriber(audioUrl, {
+        task: "transcribe",
+        language: getWhisperLanguage(options.language),
+      });
+    })().catch((error) => {
+      whisperTranscriberPromise = null;
+      throw error;
+    });
+  }
+
+  return whisperTranscriberPromise;
+}
+
 function renderAuthMode() {
   const isRegistering = authMode === "register";
   loginModeButton.classList.toggle("is-active", !isRegistering);
@@ -1046,6 +1161,7 @@ function setupVoiceInput() {
     input,
     voiceButton,
     voiceStatus,
+    voiceWaveform,
     onInputChange: updateInputCount,
     requireLocalProcessing: false,
     language: getVoiceLanguage(),

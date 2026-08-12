@@ -3,12 +3,18 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 test("prototype exposes voice input and status tabs in the HTML shell", async () => {
-  const html = await readFile("src/prototype/index.html", "utf8");
+  const [html, css] = await Promise.all([
+    readFile("src/prototype/index.html", "utf8"),
+    readFile("src/prototype/styles.css", "utf8"),
+  ]);
 
   for (const id of ["voice-button", "voice-status", "item-tabs", "active-tab", "parking-tab", "done-tab"]) {
     assert.ok(html.includes(`id="${id}"`), `${id} missing`);
   }
 
+  assert.ok(html.includes('class="voice-main-tools"'), "voice controls should be grouped so waveform/status do not push the count onto a new line");
+  assert.ok(css.includes(".voice-main-tools"), "voice toolbar should have a dedicated layout container");
+  assert.ok(css.includes("margin-left: auto"), "input count should stay pinned to the right side of the voice toolbar");
   assert.ok(html.includes("./app.js?v="), "module script should include a version query so mobile browsers pick up auth fixes");
 });
 
@@ -135,6 +141,11 @@ test("prototype exposes English localization and a persistent language switch", 
   assert.ok(app.includes('"capture.submit": "Help me sort this out"'), "English capture CTA should be present");
   assert.ok(app.includes("voiceController?.updateLanguage"), "voice recognition should follow the selected language");
   assert.ok(voice.includes("updateLanguage"), "voice controller should accept language updates after initialization");
+  assert.equal(
+    /createTranscriber:\s*createBrowserWhisperTranscriber/u.test(app),
+    false,
+    "runtime voice input should use the browser speech path without loading the browser Whisper transcriber",
+  );
 });
 
 test("login uses a standalone page shell instead of sharing the app workspace", async () => {

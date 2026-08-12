@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MindFlow2.0 Prototype</title>
-    <link rel="stylesheet" href="./styles.css?v=20260809-toast-bottom-right" />
+    <link rel="stylesheet" href="./styles.css?v=20260812-voice-polish" />
   </head>
   <body>
     <main class="app-shell is-login-shell is-auth-checking">
@@ -52,11 +52,13 @@
             <p id="today-label" class="today-label">今天</p>
             <div class="brand mobile-brand">MindFlow</div>
           </div>
-          <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch language" title="Switch language">EN</button>
+          <div class="top-utility-actions">
+            <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch language" title="Switch language">EN</button>
+            <button id="logout-button" class="logout-button" type="button" aria-label="退出登录">退出</button>
+          </div>
           <div id="top-actions" class="top-actions is-hidden">
             <button class="text-button" type="button" data-nav="home">首页</button>
             <button class="text-button" type="button" data-nav="items">全部想法</button>
-            <button id="logout-button" class="logout-button" type="button" aria-label="退出登录">退出</button>
           </div>
         </header>
 
@@ -112,8 +114,17 @@
                   placeholder="例：牙医还没约，周末整理房间，保险那个事也要看，小王消息没回，论文材料有点烦..."
                 ></textarea>
                 <div class="capture-tools">
-                  <button id="voice-button" class="voice-button" type="button"><span aria-hidden="true">◦</span>语音输入</button>
-                  <p id="voice-status" class="tool-status" aria-live="polite"></p>
+                  <div class="voice-main-tools">
+                    <button id="voice-button" class="voice-button" type="button"><span aria-hidden="true">◦</span>语音输入</button>
+                    <div id="voice-waveform" class="voice-waveform" aria-hidden="true">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                    <p id="voice-status" class="tool-status" aria-live="polite"></p>
+                  </div>
                   <span id="thought-input-count" class="input-count">0/500</span>
                 </div>
               </div>
@@ -325,6 +336,6 @@
       </div>
     </main>
 
-    <script type="module" src="./app.js?v=20260812-auth-boot"></script>
+    <script type="module" src="./app.js?v=20260812-voice-simplified"></script>
   </body>
 </html>
