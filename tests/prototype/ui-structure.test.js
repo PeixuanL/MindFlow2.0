@@ -180,12 +180,15 @@ test("detail view exposes editable deadline and tags fields", async () => {
     readFile("src/prototype/app.js", "utf8"),
   ]);
 
-  for (const id of ["detail-due-at-input", "detail-tags-input"]) {
+  for (const id of ["detail-due-date-input", "detail-due-time-input", "detail-due-at-input", "detail-tags-input"]) {
     assert.ok(html.includes(`id="${id}"`), `${id} missing`);
   }
 
-  assert.ok(html.includes('id="detail-due-at-input" class="text-input" type="datetime-local"'), "deadline input should use the browser time picker");
+  assert.ok(html.includes('class="deadline-input-group"'), "deadline input should use the custom styled date/time control");
+  assert.ok(html.includes('id="detail-due-date-input" class="text-input deadline-date-input" type="date"'), "deadline date should use a styled date input");
+  assert.ok(html.includes('id="detail-due-time-input" class="text-input deadline-time-input"'), "deadline time should use a styled select");
   assert.ok(app.includes("detailDueAtInput"), "detail runtime should wire due date input");
-  assert.ok(app.includes("formatDateTimeLocalInput(item.dueAt)"), "detail runtime should convert saved due dates for datetime-local");
+  assert.ok(app.includes("setDeadlineInputs(item.dueAt)"), "detail runtime should split saved due dates for the custom control");
+  assert.ok(app.includes("composeDeadlineInputValue()"), "detail runtime should compose a saved ISO deadline from the custom control");
   assert.ok(app.includes("detailTagsInput"), "detail runtime should wire tags input");
 });

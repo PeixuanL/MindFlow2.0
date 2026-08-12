@@ -109,6 +109,8 @@ const detailTitleInput = document.querySelector("#detail-title-input");
 const detailPriorityInput = document.querySelector("#detail-priority-input");
 const detailStatusInput = document.querySelector("#detail-status-input");
 const detailDueAtInput = document.querySelector("#detail-due-at-input");
+const detailDueDateInput = document.querySelector("#detail-due-date-input");
+const detailDueTimeInput = document.querySelector("#detail-due-time-input");
 const detailTagsInput = document.querySelector("#detail-tags-input");
 const detailReasonInput = document.querySelector("#detail-reason-input");
 const detailParkingReasonInput = document.querySelector("#detail-parking-reason-input");
@@ -646,8 +648,8 @@ const staticTranslations = [
   ["label[for='detail-title-input']", "text", "detail.titleLabel"],
   ["label[for='detail-priority-input']", "text", "detail.priority"],
   ["label[for='detail-status-input']", "text", "detail.status"],
-  ["label[for='detail-due-at-input']", "text", "detail.dueAt"],
-  ["#detail-due-at-input", "placeholder", "detail.dueAtPlaceholder"],
+  ["label[for='detail-due-date-input']", "text", "detail.dueAt"],
+  ["#detail-due-time-input", "aria-label", "detail.dueAt"],
   ["label[for='detail-tags-input']", "text", "detail.tags"],
   ["#detail-tags-input", "placeholder", "detail.tagsPlaceholder"],
   ["label[for='detail-reason-input']", "text", "detail.reason"],
@@ -689,6 +691,7 @@ const resplitStrategyLabels = {
 const detailRegenerateStrategies = ["finer", "sequence", "missing"];
 let detailRegenerateIndex = 0;
 const LOCAL_AI_WAIT_MS = 35000;
+const DEFAULT_DEADLINE_TIME = "23:59";
 
 function getResplitStrategyLabel(strategy) {
   return t(resplitStrategyLabels[strategy] ?? "home.resplit");
@@ -1160,24 +1163,92 @@ function padDatePart(value) {
   return String(value).padStart(2, "0");
 }
 
-function formatDateTimeLocalInput(value) {
+function formatTimeOption(hour, minute) {
+  return `${padDatePart(hour)}:${padDatePart(minute)}`;
+}
+
+function buildDeadlineTimeOptions() {
+  const values = [];
+  for (let hour = 0; hour < 24; hour += 1) {
+    for (const minute of [0, 30]) {
+      const value = formatTimeOption(hour, minute);
+      if (!values.includes(value)) {
+        values.push(value);
+      }
+    }
+  }
+
+  values.push(DEFAULT_DEADLINE_TIME);
+
+  return values;
+}
+
+function addDeadlineTimeOption(value) {
+  if (!value || detailDueTimeInput.querySelector(`option[value="${value}"]`)) {
+    return;
+  }
+
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = value;
+  detailDueTimeInput.append(option);
+}
+
+function populateDeadlineTimeOptions() {
+  detailDueTimeInput.replaceChildren();
+  buildDeadlineTimeOptions().forEach(addDeadlineTimeOption);
+}
+
+function getDeadlineInputParts(value) {
+  const rawValue = String(value ?? "").trim();
+  const rawMatch = rawValue.match(/^(\d{4}-\d{2}-\d{2})(?:T(\d{2}):(\d{2}))?/u);
+  if (rawMatch) {
+    return {
+      date: rawMatch[1],
+      time: rawMatch[2] && rawMatch[3] ? `${rawMatch[2]}:${rawMatch[3]}` : DEFAULT_DEADLINE_TIME,
+    };
+  }
+
   const deadline = parseDeadlineValue(value);
   if (!deadline) {
-    return "";
+    return {
+      date: "",
+      time: DEFAULT_DEADLINE_TIME,
+    };
   }
 
   const date = deadline.date;
-  return [
-    date.getFullYear(),
-    "-",
-    padDatePart(date.getMonth() + 1),
-    "-",
-    padDatePart(date.getDate()),
-    "T",
-    padDatePart(date.getHours()),
-    ":",
-    padDatePart(date.getMinutes()),
-  ].join("");
+  return {
+    date: `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`,
+    time: formatTimeOption(date.getHours(), date.getMinutes()),
+  };
+}
+
+function composeDeadlineInputValue() {
+  const date = detailDueDateInput.value;
+  if (!date) {
+    return "";
+  }
+
+  const time = detailDueTimeInput.value || DEFAULT_DEADLINE_TIME;
+  return `${date}T${time}:00+08:00`;
+}
+
+function syncDeadlineInputValue() {
+  detailDueAtInput.value = composeDeadlineInputValue();
+}
+
+function setDeadlineInputs(value) {
+  const parts = getDeadlineInputParts(value);
+  addDeadlineTimeOption(parts.time);
+  detailDueDateInput.value = parts.date;
+  detailDueTimeInput.value = parts.time || DEFAULT_DEADLINE_TIME;
+  syncDeadlineInputValue();
+}
+
+function setupDeadlineEditor() {
+  detailDueDateInput.addEventListener("change", syncDeadlineInputValue);
+  detailDueTimeInput.addEventListener("change", syncDeadlineInputValue);
 }
 
 function getDeadlineLabel(item) {
@@ -1604,7 +1675,7 @@ function renderDetail(itemId, { from = "items" } = {}) {
   detailTitleInput.value = item.title;
   detailPriorityInput.value = item.priority;
   detailStatusInput.value = item.status;
-  detailDueAtInput.value = formatDateTimeLocalInput(item.dueAt);
+  setDeadlineInputs(item.dueAt);
   detailTagsInput.value = Array.isArray(item.tags) ? item.tags.join(", ") : "";
   detailReasonInput.value = item.reason || "";
   detailParkingReasonInput.value = item.parkingReason || "";
@@ -2314,7 +2385,7 @@ detailForm.addEventListener("submit", async (event) => {
       title: detailTitleInput.value,
       priority: detailPriorityInput.value,
       status: detailStatusInput.value,
-      dueAt: detailDueAtInput.value,
+      dueAt: composeDeadlineInputValue(),
       tags: detailTagsInput.value,
       reason: detailReasonInput.value,
       parkingReason: detailParkingReasonInput.value,
@@ -2343,6 +2414,8 @@ detailForm.addEventListener("submit", async (event) => {
 });
 
 window.addEventListener("hashchange", renderRoute);
+populateDeadlineTimeOptions();
+setupDeadlineEditor();
 applyStaticLanguage();
 setupVoiceInput();
 updateInputCount();

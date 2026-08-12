@@ -282,8 +282,12 @@
             <option value="done">已完成</option>
           </select>
 
-          <label class="capture-title" for="detail-due-at-input">截止时间</label>
-          <input id="detail-due-at-input" class="text-input" type="datetime-local" step="60" />
+          <label class="capture-title" for="detail-due-date-input">截止时间</label>
+          <div class="deadline-input-group">
+            <input id="detail-due-date-input" class="text-input deadline-date-input" type="date" />
+            <select id="detail-due-time-input" class="text-input deadline-time-input" aria-label="截止时间"></select>
+            <input id="detail-due-at-input" type="hidden" />
+          </div>
 
           <label class="capture-title" for="detail-tags-input">标签</label>
           <input id="detail-tags-input" class="text-input" type="text" maxlength="120" placeholder="用逗号分隔，例如：申请, 材料" />

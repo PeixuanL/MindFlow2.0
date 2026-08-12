@@ -477,6 +477,27 @@ h1 {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.46) inset;
 }
 
+.deadline-input-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(118px, 0.34fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.deadline-date-input,
+.deadline-time-input {
+  min-width: 0;
+}
+
+.deadline-time-input {
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--coral) 50%) calc(100% - 18px) 50% / 7px 7px no-repeat,
+    linear-gradient(135deg, var(--coral) 50%, transparent 50%) calc(100% - 13px) 50% / 7px 7px no-repeat,
+    var(--surface-input);
+  padding-right: 34px;
+}
+
 .field-error,
 .field-success {
   min-height: 20px;
@@ -781,6 +802,10 @@ h1 {
 @media (max-width: 759px) {
   body {
     overflow-x: hidden;
+  }
+
+  .deadline-input-group {
+    grid-template-columns: 1fr;
   }
 
   .app-shell {
