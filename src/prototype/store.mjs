@@ -1,3 +1,5 @@
+import { getDeadlineTime } from "./deadline-utils.mjs";
+
 export const MIND_FLOW_STORAGE_KEY = "mindflow:v1";
 const STORAGE_KEY = MIND_FLOW_STORAGE_KEY;
 const SKIP_MS = 30 * 60 * 1000;
@@ -197,7 +199,7 @@ function findUser(state, userId) {
 
 export function getItemPriorityScore(item, now = Date.now()) {
   const rank = { high: 100, medium: 200, low: 300 };
-  const dueTime = Date.parse(item?.dueAt ?? "");
+  const dueTime = getDeadlineTime(item?.dueAt);
   let dueBonus = 0;
 
   if (Number.isFinite(dueTime)) {
@@ -223,8 +225,8 @@ function sortActive(items, now) {
       return scoreDelta;
     }
 
-    const leftDue = Date.parse(a.dueAt ?? "");
-    const rightDue = Date.parse(b.dueAt ?? "");
+    const leftDue = getDeadlineTime(a.dueAt);
+    const rightDue = getDeadlineTime(b.dueAt);
     if (Number.isFinite(leftDue) && Number.isFinite(rightDue) && leftDue !== rightDue) {
       return leftDue - rightDue;
     }

@@ -225,6 +225,15 @@ test("store uses deadline-aware priority scoring for active recommendations", ()
   assert.equal(getItemPriorityScore(batch.items[1], now) <= getItemPriorityScore(batch.items[0], now), true);
 });
 
+test("store does not treat today's date-only deadline as already expired", () => {
+  const now = new Date(2026, 7, 9, 12, 0, 0).getTime();
+  const todayScore = getItemPriorityScore({ priority: "medium", dueAt: "2026-08-09" }, now);
+  const explicitPastScore = getItemPriorityScore({ priority: "medium", dueAt: "2026-08-09T09:00:00+08:00" }, now);
+
+  assert.equal(todayScore, 100);
+  assert.equal(explicitPastScore, 70);
+});
+
 test("store updates detail fields, moves items between sections, and exposes a parking candidate", () => {
   const storage = createMemoryStorage();
   const store = createMindFlowStore({ storage, now: () => 1000 });

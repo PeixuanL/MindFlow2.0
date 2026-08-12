@@ -4,6 +4,7 @@ import {
   organizeThoughtsWithAi,
 } from "./ai-organizer.mjs";
 import { createMindFlowCloudStore } from "./cloud-store.mjs";
+import { getLocalDayDelta, parseDeadlineValue } from "./deadline-utils.mjs";
 import { getItemPriorityScore, priorityLabels } from "./store.mjs";
 import { createVoiceInputController } from "./voice-input.mjs";
 
@@ -1155,23 +1156,18 @@ function formatTimeShort(date) {
   }).format(date);
 }
 
-function startOfLocalDay(date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-}
-
 function getDeadlineLabel(item) {
-  const dueAt = item?.dueAt ? new Date(item.dueAt) : null;
-  if (!dueAt || Number.isNaN(dueAt.getTime())) {
+  const deadline = parseDeadlineValue(item?.dueAt);
+  if (!deadline) {
     return "";
   }
 
   const now = new Date();
-  const dueDay = startOfLocalDay(dueAt);
-  const today = startOfLocalDay(now);
-  const dayDelta = Math.round((dueDay - today) / (24 * 60 * 60 * 1000));
+  const dueAt = deadline.date;
+  const dayDelta = getLocalDayDelta(dueAt, now);
   const time = formatTimeShort(dueAt);
 
-  if (dueAt.getTime() < now.getTime()) {
+  if (deadline.isDateOnly ? dayDelta < 0 : dueAt.getTime() < now.getTime()) {
     return t("meta.dueOverdue", { date: formatDateShort(dueAt) });
   }
 
