@@ -164,6 +164,28 @@ textarea:disabled {
   font-weight: 760;
 }
 
+.language-toggle {
+  flex: 0 0 auto;
+  min-width: 42px;
+  min-height: 34px;
+  border: 1px solid rgba(232, 139, 106, 0.22);
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.52);
+  color: var(--coral);
+  font-size: 13px;
+  font-weight: 840;
+  line-height: 1.1;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.52) inset;
+}
+
+.language-toggle:hover,
+.language-toggle:focus-visible {
+  border-color: rgba(232, 139, 106, 0.42);
+  outline: 2px solid rgba(232, 139, 106, 0.16);
+  outline-offset: 2px;
+}
+
 .logout-button {
   min-height: 34px;
   border: 1px solid rgba(232, 139, 106, 0.18);
@@ -493,12 +515,17 @@ h1 {
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 10px;
-  margin-top: 14px;
+  position: fixed;
+  right: clamp(16px, 2vw, 32px);
+  bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 14px));
+  z-index: 80;
+  width: min(420px, calc(100vw - 32px));
+  margin: 0;
   border: 1px solid var(--warm-line);
   border-radius: var(--radius-md);
   padding: 12px;
-  background: var(--surface-glass-strong);
-  box-shadow: var(--warm-shadow-low);
+  background: rgba(255, 253, 248, 0.96);
+  box-shadow: 0 18px 44px rgba(112, 77, 58, 0.18);
 }
 
 .toast p {
@@ -1098,6 +1125,11 @@ h1 {
 .row-text span {
   color: var(--text-muted);
   font-size: 13px;
+}
+
+.row-text .row-deadline {
+  color: var(--coral);
+  font-weight: 780;
 }
 
 .row-chevron {

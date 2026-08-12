@@ -25,7 +25,27 @@ The project has been initialized. The technical stack and first implementation s
 
 ## Private AI Organizing
 
-The deployed `/api/organize` route can call OpenRouter when `OPENROUTER_API_KEY` is configured. Without that key, it stays local and does not send input to an external model.
+The deployed `/api/organize` route can call OpenRouter or NVIDIA NIM from server-side environment variables. Without a configured cloud provider, it stays local and does not send input to an external model.
+
+To test NVIDIA NIM before deploying, keep the API key in your shell or `.env.local` only:
+
+```bash
+AI_PROVIDER=nvidia \
+NVIDIA_API_KEY=nvapi-your-key \
+NVIDIA_MODEL=openai/gpt-oss-20b \
+node --test tests/prototype/nvidia-client.test.js tests/prototype/organize-api.test.js
+```
+
+For a real local quality check, call the API route through Vercel dev or a deployed preview with:
+
+```text
+AI_PROVIDER=nvidia
+NVIDIA_API_KEY=nvapi-your-key
+NVIDIA_MODEL=openai/gpt-oss-20b
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+```
+
+Then request `GET /api/organize` and confirm it reports `aiProvider: "nvidia"` with `nvidiaConfigured: true`.
 
 ## Local Ollama Organizing
 

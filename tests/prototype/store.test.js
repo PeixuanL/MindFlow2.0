@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   createMindFlowStore,
+  getItemPriorityScore,
   priorityLabels,
 } from "../../src/prototype/store.mjs";
 
@@ -188,6 +189,42 @@ test("store recommends active items and does not immediately repeat a skipped it
   assert.equal(store.getRecommendation(user.id), null);
 });
 
+test("store uses deadline-aware priority scoring for active recommendations", () => {
+  const storage = createMemoryStorage();
+  const now = new Date("2026-08-09T10:00:00+08:00").getTime();
+  const store = createMindFlowStore({ storage, now: () => now });
+  const user = store.login("Jane");
+  const batch = store.saveOrganizedResult(user.id, "raw", {
+    status: "organized",
+    message: "其他想法都还在",
+    suggestions: [
+      {
+        title: "长期作品集重构",
+        priority: "high",
+        assignTo: "active",
+        reason: "重要但不急。",
+        nextStep: "打开作品集目录。",
+        focusSteps: ["打开目录", "列出页面"],
+        source: "长期作品集重构",
+      },
+      {
+        title: "今晚交材料",
+        priority: "medium",
+        assignTo: "active",
+        reason: "有明确截止。",
+        nextStep: "打开材料清单。",
+        focusSteps: ["打开清单", "确认缺口"],
+        source: "今晚交材料",
+        dueAt: "2026-08-09T20:00:00+08:00",
+      },
+    ],
+    savedItems: [],
+  });
+
+  assert.equal(store.getRecommendation(user.id).id, batch.items[1].id);
+  assert.equal(getItemPriorityScore(batch.items[1], now) <= getItemPriorityScore(batch.items[0], now), true);
+});
+
 test("store updates detail fields, moves items between sections, and exposes a parking candidate", () => {
   const storage = createMemoryStorage();
   const store = createMindFlowStore({ storage, now: () => 1000 });
@@ -362,6 +399,10 @@ test("store saves AI assignment, deadline, tags, and big event metadata", () => 
   assert.equal(batch.items[0].status, "active");
   assert.equal(batch.items[0].dueAt, "2026-08-02T20:00:00+08:00");
   assert.deepEqual(batch.items[0].tags, ["申请", "材料"]);
+  assert.equal("priorityMethod" in batch.items[0], false);
+  assert.equal("priorityQuadrant" in batch.items[0], false);
+  assert.equal("urgency" in batch.items[0], false);
+  assert.equal("importance" in batch.items[0], false);
   assert.equal(batch.items[1].status, "parking");
   assert.equal(batch.items[1].isBigEvent, true);
   assert.equal(batch.items[1].remindDaysBefore, 7);

@@ -226,6 +226,96 @@ test("organize API calls OpenRouter with zero-cost guardrails when configured", 
   assert.equal(JSON.parse(payload.aiJson).meta.modelBehavior, "ai");
 });
 
+test("organize API calls NVIDIA when configured as the AI provider", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousProvider = process.env.AI_PROVIDER;
+  const previousNvidiaKey = process.env.NVIDIA_API_KEY;
+  const previousNvidiaModel = process.env.NVIDIA_MODEL;
+  const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+  const previousLimit = process.env.MINDFLOW_DAILY_AI_LIMIT;
+  const requests = [];
+
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    restoreEnvValue("AI_PROVIDER", previousProvider);
+    restoreEnvValue("NVIDIA_API_KEY", previousNvidiaKey);
+    restoreEnvValue("NVIDIA_MODEL", previousNvidiaModel);
+    restoreEnvValue("OPENROUTER_API_KEY", previousOpenRouterKey);
+    restoreEnvValue("MINDFLOW_DAILY_AI_LIMIT", previousLimit);
+  });
+
+  process.env.AI_PROVIDER = "nvidia";
+  process.env.NVIDIA_API_KEY = "test-nvidia-key";
+  process.env.NVIDIA_MODEL = "openai/gpt-oss-20b";
+  process.env.OPENROUTER_API_KEY = "test-openrouter-key";
+  process.env.MINDFLOW_DAILY_AI_LIMIT = "50";
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  status: "organized",
+                  message: "其他想法都还在",
+                  inputMode: "mixed",
+                  semanticUnits: [
+                    { id: "u1", text: "牙医还没约", role: "task", topicHint: "牙医" },
+                  ],
+                  items: [
+                    {
+                      id: "item_1",
+                      title: "预约牙医",
+                      sourceUnitIds: ["u1"],
+                      mentions: ["牙医还没约"],
+                      type: "task",
+                      priority: "medium",
+                      assignTo: "active",
+                      reason: "它比较清楚，可以先看一眼。",
+                      nextStep: "找到诊所电话。",
+                      focusSteps: ["打开通讯录", "找到诊所电话"],
+                      tags: ["预约"],
+                      isBigEvent: false,
+                    },
+                  ],
+                  recommendedNow: {
+                    itemId: "item_1",
+                    title: "预约牙医",
+                    reason: "它比较清楚，可以先看一眼。",
+                    nextStep: "找到诊所电话。",
+                  },
+                  coverageCheck: {
+                    coveredUnitIds: ["u1"],
+                    unmappedUnitIds: [],
+                    possibleDuplicates: [],
+                    needsClarification: [],
+                  },
+                  meta: { modelBehavior: "ai", safetyLevel: "normal" },
+                }),
+              },
+            },
+          ],
+        };
+      },
+    };
+  };
+
+  const response = createResponse();
+  await handler(createRequest({ rawText: "牙医还没约" }), response);
+  const payload = JSON.parse(response.body);
+  const body = JSON.parse(requests[0].options.body);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(requests[0].url, "https://integrate.api.nvidia.com/v1/chat/completions");
+  assert.equal(requests[0].options.headers.Authorization, "Bearer test-nvidia-key");
+  assert.equal(body.model, "openai/gpt-oss-20b");
+  assert.deepEqual(body.response_format, { type: "json_object" });
+  assert.equal(payload.aiJson.includes("\"预约牙医\""), true);
+});
+
 test("organize API blocks OpenRouter responses that ignore semantic evidence", async (t) => {
   const previousFetch = globalThis.fetch;
   const previousKey = process.env.OPENROUTER_API_KEY;

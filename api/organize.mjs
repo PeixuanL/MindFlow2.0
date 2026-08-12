@@ -3,6 +3,7 @@ import {
   getOrganizedResultSaveBlocker,
   organizeThoughtsWithAi,
 } from "../src/prototype/ai-organizer.mjs";
+import { createNvidiaClient, resolveNvidiaModel } from "../src/prototype/nvidia-client.mjs";
 import { createOpenRouterClient, resolveOpenRouterModel } from "../src/prototype/openrouter-client.mjs";
 
 const MAX_BODY_LENGTH = 12000;
@@ -83,20 +84,30 @@ function canUseLocalOrganizeFallback() {
   return process.env.MINDFLOW_ALLOW_LOCAL_ORGANIZE === "true";
 }
 
+function getAiProvider() {
+  const provider = String(process.env.AI_PROVIDER ?? "openrouter").trim().toLocaleLowerCase();
+  return provider === "nvidia" ? "nvidia" : "openrouter";
+}
+
 function getAiDiagnostics() {
   const configuredModel = process.env.OPENROUTER_MODEL || "";
+  const configuredNvidiaModel = process.env.NVIDIA_MODEL || "";
   const requireZdr = process.env.OPENROUTER_REQUIRE_ZDR === "true";
 
   return {
+    aiProvider: getAiProvider(),
     openRouterConfigured: Boolean(process.env.OPENROUTER_API_KEY),
+    nvidiaConfigured: Boolean(process.env.NVIDIA_API_KEY),
     configuredModel: configuredModel || null,
     model: resolveOpenRouterModel(configuredModel),
+    configuredNvidiaModel: configuredNvidiaModel || null,
+    nvidiaModel: resolveNvidiaModel(configuredNvidiaModel),
     requireZdr,
     localFallbackAllowed: canUseLocalOrganizeFallback(),
   };
 }
 
-function allowOpenRouterRequest(request) {
+function allowCloudAiRequest(request) {
   const requesterId = getRequesterId(request);
   const dateKey = getShanghaiDateKey();
   const existing = openRouterDailyBuckets.get(requesterId);
@@ -112,10 +123,21 @@ function allowOpenRouterRequest(request) {
   return true;
 }
 
-async function sendOpenRouterResult(response, rawText) {
+async function sendOpenRouterResult(response, rawText, strategy = null) {
   const openRouterClient = createOpenRouterClient();
   const result = await organizeThoughtsWithAi(rawText, {
     aiClient: openRouterClient,
+    ...(strategy ? { strategy } : {}),
+  });
+
+  sendOrganizedResult(response, rawText, result);
+}
+
+async function sendNvidiaResult(response, rawText, strategy = null) {
+  const nvidiaClient = createNvidiaClient();
+  const result = await organizeThoughtsWithAi(rawText, {
+    aiClient: nvidiaClient,
+    ...(strategy ? { strategy } : {}),
   });
 
   sendOrganizedResult(response, rawText, result);
@@ -142,6 +164,7 @@ export default async function handler(request, response) {
   }
 
   const rawText = typeof body.rawText === "string" ? body.rawText : "";
+  const strategy = typeof body.strategy === "string" ? body.strategy : null;
 
   if (!rawText.trim()) {
     sendJson(response, 400, { error: "empty_input" });
@@ -153,14 +176,37 @@ export default async function handler(request, response) {
     return;
   }
 
-  if (process.env.OPENROUTER_API_KEY) {
-    if (!allowOpenRouterRequest(request)) {
+  if (getAiProvider() === "nvidia") {
+    if (!process.env.NVIDIA_API_KEY) {
+      sendJson(response, 503, { error: "ai_not_configured" });
+      return;
+    }
+
+    if (!allowCloudAiRequest(request)) {
       sendJson(response, 429, { error: "ai_rate_limited" });
       return;
     }
 
     try {
-      await sendOpenRouterResult(response, rawText);
+      await sendNvidiaResult(response, rawText, strategy);
+      return;
+    } catch (error) {
+      const reason = typeof error?.message === "string" && error.message.startsWith("nvidia_request_failed_")
+        ? error.message
+        : "nvidia_failed";
+      sendJson(response, 503, { error: "ai_unavailable", reason });
+      return;
+    }
+  }
+
+  if (process.env.OPENROUTER_API_KEY) {
+    if (!allowCloudAiRequest(request)) {
+      sendJson(response, 429, { error: "ai_rate_limited" });
+      return;
+    }
+
+    try {
+      await sendOpenRouterResult(response, rawText, strategy);
       return;
     } catch (error) {
       const reason = typeof error?.message === "string" && error.message.startsWith("openrouter_request_failed_")

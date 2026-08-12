@@ -195,12 +195,42 @@ function findUser(state, userId) {
   return user;
 }
 
-function sortActive(items) {
-  const rank = { high: 0, medium: 1, low: 2 };
+export function getItemPriorityScore(item, now = Date.now()) {
+  const rank = { high: 100, medium: 200, low: 300 };
+  const dueTime = Date.parse(item?.dueAt ?? "");
+  let dueBonus = 0;
+
+  if (Number.isFinite(dueTime)) {
+    const delta = dueTime - now;
+    if (delta <= 0) {
+      dueBonus = -130;
+    } else if (delta <= 24 * 60 * 60 * 1000) {
+      dueBonus = -100;
+    } else if (delta <= 48 * 60 * 60 * 1000) {
+      dueBonus = -60;
+    } else if (delta <= 7 * 24 * 60 * 60 * 1000) {
+      dueBonus = -20;
+    }
+  }
+
+  return (rank[item?.priority] ?? 400) + dueBonus;
+}
+
+function sortActive(items, now) {
   return [...items].sort((a, b) => {
-    const priorityDelta = (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3);
-    if (priorityDelta !== 0) {
-      return priorityDelta;
+    const scoreDelta = getItemPriorityScore(a, now()) - getItemPriorityScore(b, now());
+    if (scoreDelta !== 0) {
+      return scoreDelta;
+    }
+
+    const leftDue = Date.parse(a.dueAt ?? "");
+    const rightDue = Date.parse(b.dueAt ?? "");
+    if (Number.isFinite(leftDue) && Number.isFinite(rightDue) && leftDue !== rightDue) {
+      return leftDue - rightDue;
+    }
+
+    if (Number.isFinite(leftDue) !== Number.isFinite(rightDue)) {
+      return Number.isFinite(leftDue) ? -1 : 1;
     }
 
     return (a.createdAt ?? 0) - (b.createdAt ?? 0);
@@ -670,6 +700,7 @@ export function createMindFlowStore(options = {}) {
             const skipUntil = user.skips[item.id] ?? 0;
             return item.status === "active" && skipUntil <= now();
           }),
+          now,
         );
 
         return active[0] ? clone(active[0]) : null;

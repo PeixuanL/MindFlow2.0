@@ -16,6 +16,30 @@ const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
 const LOCAL_SPEECH_FILLER_PATTERN = /(?:我感觉|感觉|其实|就是|那个|这个|有点|一些|现在|今天|昨天|刚才|以及|然后|同时|顺便)/gu;
 const LOCAL_CONTEXT_ONLY_PATTERN = /(部署到Vercel之后|部署.*之后$|解决方案.*昨天.*拆解|昨天.*拆解|跑得挺好|跑得挺好的|连着.*模型)/u;
 const LOCAL_TASK_SIGNAL_PATTERN = /(问题|歧义|歧词|过滤|没.*过滤|没有.*过滤|并没有|不生效|不能|不会|失败|异常|出错|bug|修|改|优化|要|需要|得|勾选|划线|同步|完成|整理|准备|学习|投递|检索|设置|制作|宣传|文案|视频|小红书|增加|多语言|英文|约|回复|自测|测试|拆成步骤|模型.*慢|牙医|保险|消息没回|没回|房间|作品集|论文材料|找工作|求职|领英|LinkedIn|linkedin|connect|人脉|联系人|找人|体检报告|账单|厨房|方案|快递|护照|过期|水电费|没交|桌面|面试|简历|自我介绍|练|冰箱|垃圾|衣服|本地登录|整理速度|提交|客厅|杯子|水果|验证码|医院预约|论文摘要|申请材料|推荐信|作品集链接|洗衣液|物业|通知|发出去|发给|提醒|检查|记得|顺路|买|洗|晾|扔|拿|取|猫砂|猫疫苗|疫苗|房东|漏水|拍视频|快没|身份证|不知道放哪|行李箱|阳台衣服)/iu;
+const CHINESE_NUMBER_MAP = {
+  一: 1,
+  二: 2,
+  两: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+  十: 10,
+};
+const WEEKDAY_MAP = {
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  日: 0,
+  天: 0,
+};
+const TIME_HINT_PATTERN = /(今天|今晚|明天|明晚|后天|大后天|周[一二三四五六日天]|星期[一二三四五六日天]|下周[一二三四五六日天]?|下个月|几小时后|几个小时后|[一二两三四五六七八九十0-9]+个?小时后|[一二两三四五六七八九十0-9]+天后|上午|中午|下午|晚上|早上|凌晨)/u;
 
 function toInputText(rawText) {
   return typeof rawText === "string" ? rawText : String(rawText ?? "");
@@ -77,6 +101,240 @@ function normalizeTextArray(values) {
   }
 
   return values.map((value) => String(value ?? "").trim()).filter(Boolean);
+}
+
+function padNumber(value) {
+  return String(value).padStart(2, "0");
+}
+
+function getChineseNumber(value, fallback = null) {
+  const text = String(value ?? "").trim();
+  if (/^\d+$/u.test(text)) {
+    return Number(text);
+  }
+
+  if (text === "几" || text === "几个") {
+    return fallback;
+  }
+
+  if (text.length === 1) {
+    return CHINESE_NUMBER_MAP[text] ?? fallback;
+  }
+
+  if (text === "十一") {
+    return 11;
+  }
+
+  if (text === "十二") {
+    return 12;
+  }
+
+  if (text.startsWith("十")) {
+    return 10 + (CHINESE_NUMBER_MAP[text.slice(1)] ?? 0);
+  }
+
+  if (text.endsWith("十")) {
+    return (CHINESE_NUMBER_MAP[text.slice(0, -1)] ?? 1) * 10;
+  }
+
+  const tenParts = text.split("十");
+  if (tenParts.length === 2) {
+    return (CHINESE_NUMBER_MAP[tenParts[0]] ?? 1) * 10 + (CHINESE_NUMBER_MAP[tenParts[1]] ?? 0);
+  }
+
+  return fallback;
+}
+
+function getShanghaiDateParts(nowValue) {
+  const date = new Date(nowValue ?? Date.now());
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    hour: Number(values.hour === "24" ? "0" : values.hour),
+    minute: Number(values.minute),
+  };
+}
+
+function addDaysToShanghaiDate(parts, dayDelta) {
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + dayDelta));
+
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  };
+}
+
+function formatShanghaiIso(dateParts, hour = 9, minute = 0) {
+  return `${dateParts.year}-${padNumber(dateParts.month)}-${padNumber(dateParts.day)}T${padNumber(hour)}:${padNumber(minute)}:00+08:00`;
+}
+
+function getLocalTimeOfDay(text) {
+  const explicit = String(text ?? "").match(/([0-9一二两三四五六七八九十]{1,3})\s*(?::|点)(?:\s*([0-9]{1,2})\s*分?)?/u);
+  if (explicit) {
+    let hour = getChineseNumber(explicit[1], 9);
+    const minute = explicit[2] ? Number(explicit[2]) : 0;
+    if (/下午|晚上|今晚|明晚/u.test(text) && hour < 12) {
+      hour += 12;
+    }
+    return { hour: Math.min(hour, 23), minute: Math.min(minute, 59) };
+  }
+
+  if (/凌晨/u.test(text)) {
+    return { hour: 6, minute: 0 };
+  }
+
+  if (/上午|早上/u.test(text)) {
+    return { hour: 9, minute: 0 };
+  }
+
+  if (/中午/u.test(text)) {
+    return { hour: 12, minute: 0 };
+  }
+
+  if (/下午/u.test(text)) {
+    return { hour: 15, minute: 0 };
+  }
+
+  if (/今晚|明晚|晚上/u.test(text)) {
+    return { hour: 20, minute: 0 };
+  }
+
+  return { hour: 9, minute: 0 };
+}
+
+function extractLocalTimeHint(text) {
+  const match = String(text ?? "").match(TIME_HINT_PATTERN);
+  return match?.[0] ?? null;
+}
+
+function parseLocalDeadline(text, options = {}) {
+  const source = String(text ?? "");
+  const timeHint = extractLocalTimeHint(source);
+  if (!timeHint) {
+    return {
+      timeHint: null,
+      dueAt: null,
+      remindDaysBefore: null,
+    };
+  }
+
+  const nowParts = getShanghaiDateParts(options.now);
+  const time = getLocalTimeOfDay(source);
+  const hourMatch = source.match(/([一二两三四五六七八九十0-9几]+)个?小时后/u);
+  if (hourMatch) {
+    const hours = getChineseNumber(hourMatch[1], 3) ?? 3;
+    const dueDate = new Date(new Date(options.now ?? Date.now()).getTime() + hours * 60 * 60 * 1000);
+    const dueParts = getShanghaiDateParts(dueDate);
+    return {
+      timeHint,
+      dueAt: formatShanghaiIso(dueParts, dueParts.hour, dueParts.minute),
+      remindDaysBefore: 0,
+    };
+  }
+
+  let dayDelta = 0;
+  if (/明天|明晚/u.test(source)) {
+    dayDelta = 1;
+  } else if (/后天/u.test(source)) {
+    dayDelta = source.includes("大后天") ? 3 : 2;
+  } else {
+    const dayMatch = source.match(/([一二两三四五六七八九十0-9]+)天后/u);
+    if (dayMatch) {
+      dayDelta = getChineseNumber(dayMatch[1], 0) ?? 0;
+    }
+  }
+
+  const weekdayMatch = source.match(/(下周|周|星期)([一二三四五六日天])?/u);
+  if (weekdayMatch) {
+    const currentDate = new Date(Date.UTC(nowParts.year, nowParts.month - 1, nowParts.day));
+    const currentWeekday = currentDate.getUTCDay();
+    const targetWeekday = WEEKDAY_MAP[weekdayMatch[2]] ?? currentWeekday;
+    const baseDelta = (targetWeekday - currentWeekday + 7) % 7;
+    dayDelta = weekdayMatch[1] === "下周" ? baseDelta + (baseDelta === 0 ? 7 : 0) : baseDelta || 7;
+  }
+
+  if (/下个月/u.test(source)) {
+    const nextMonth = new Date(Date.UTC(nowParts.year, nowParts.month, nowParts.day));
+    const dateParts = {
+      year: nextMonth.getUTCFullYear(),
+      month: nextMonth.getUTCMonth() + 1,
+      day: nextMonth.getUTCDate(),
+    };
+    return {
+      timeHint,
+      dueAt: formatShanghaiIso(dateParts, time.hour, time.minute),
+      remindDaysBefore: 7,
+    };
+  }
+
+  return {
+    timeHint,
+    dueAt: formatShanghaiIso(addDaysToShanghaiDate(nowParts, dayDelta), time.hour, time.minute),
+    remindDaysBefore: dayDelta <= 1 ? 0 : dayDelta <= 3 ? 1 : 3,
+  };
+}
+
+function getDueSoonLevel(dueAt, nowValue) {
+  const dueTime = Date.parse(dueAt);
+  if (!Number.isFinite(dueTime)) {
+    return "none";
+  }
+
+  const delta = dueTime - new Date(nowValue ?? Date.now()).getTime();
+  if (delta <= 24 * 60 * 60 * 1000) {
+    return "urgent";
+  }
+
+  if (delta <= 3 * 24 * 60 * 60 * 1000) {
+    return "soon";
+  }
+
+  return "later";
+}
+
+function createPriorityRuleDecision({ text, title, dueAt, isBigEvent, index, options = {} }) {
+  const source = `${text} ${title}`;
+  const hasSourcePriority = source.match(/\bP([0-2])\b/u)?.[1] ?? null;
+  const dueLevel = getDueSoonLevel(dueAt, options.now);
+  const urgent = dueLevel === "urgent" || /今天|今晚|明天|几小时后|几个小时后|尽快|赶紧|马上|周.+前|前要/u.test(source);
+  const important = hasSourcePriority === "0" ||
+    isBigEvent ||
+    /重要|核心|申请|材料|面试|项目|方案|报告|推荐信|作品集|发布|截止|老板|客户|交/u.test(source);
+  const priority = hasSourcePriority === "0"
+    ? "high"
+    : hasSourcePriority === "1"
+      ? "medium"
+      : hasSourcePriority === "2"
+        ? "low"
+        : urgent && important
+          ? "high"
+          : urgent || important || index === 0
+            ? "medium"
+            : "low";
+
+  return {
+    priority,
+    reason: urgent && important
+      ? "它有明确时间线索，先处理最小下一步。"
+      : urgent
+        ? "它有截止时间，适合先排入最近行动。"
+        : important
+          ? "它比较重要，可以先拆出推进步骤。"
+          : "它压力较低，可以先保存并保持可开始。",
+  };
 }
 
 function normalizeSemanticUnits(units) {
@@ -389,19 +647,67 @@ function normalizeSuggestion(suggestion, index) {
   };
 }
 
-function normalizeSemanticItem(item, index, recommendedNow) {
+function getSemanticUnitTextById(semanticUnits, unitId) {
+  return semanticUnits.find((unit) => unit.id === unitId)?.text ?? "";
+}
+
+function inferDeadlineFromTexts(values, options = {}) {
+  const combined = normalizeTextArray(values).join("，");
+  return parseLocalDeadline(combined, options);
+}
+
+function isGenericNextStepText(value) {
+  return /^(开始|处理|整理|学习|准备|完成|推进|制定计划|规划|研究|分析|安排时间|先把这件事写成|把这件事改写成)/u
+    .test(String(value ?? "").trim());
+}
+
+function refineGenericSemanticSteps({ title, nextStep, focusSteps, evidenceTexts, options = {} }) {
+  if (!isGenericNextStepText(nextStep) && !focusSteps.some(isGenericNextStepText)) {
+    return { nextStep, focusSteps };
+  }
+
+  const units = normalizeTextArray(evidenceTexts);
+  const localTitle = createLocalSemanticTitle(units.length > 0 ? units : [title]);
+  const localSteps = createLocalSemanticFocusSteps(localTitle, units.length > 0 ? units : [title], options);
+
+  return {
+    nextStep: createLocalSemanticNextStep(localTitle, localSteps),
+    focusSteps: localSteps,
+  };
+}
+
+function normalizeSemanticItem(item, index, recommendedNow, semanticUnits = [], options = {}) {
   const isRecommended = hasText(recommendedNow?.itemId) && recommendedNow.itemId === item.id;
-  const timeHint = item.timeHint ?? null;
-  const dueAt = hasText(item.dueAt) ? item.dueAt.trim() : null;
+  const mentions = normalizeTextArray(item.mentions);
+  const sourceUnitTexts = normalizeTextArray(item.sourceUnitIds).map((unitId) => getSemanticUnitTextById(semanticUnits, unitId));
+  const inferredDeadline = inferDeadlineFromTexts([
+    ...mentions,
+    ...sourceUnitTexts,
+    item.source,
+    item.title,
+  ], options);
+  const timeHint = item.timeHint ?? inferredDeadline.timeHint;
+  const dueAt = hasText(item.dueAt) ? item.dueAt.trim() : inferredDeadline.dueAt;
   const title = cleanTaskTitle(item.title, timeHint, dueAt);
-  const nextStep = hasText(item.nextStep) ? cleanDisplayText(item.nextStep) : cleanDisplayText(recommendedNow?.nextStep);
-  const focusSteps = Array.isArray(item.focusSteps)
+  const initialNextStep = hasText(item.nextStep) ? cleanDisplayText(item.nextStep) : cleanDisplayText(recommendedNow?.nextStep);
+  const initialFocusSteps = Array.isArray(item.focusSteps)
     ? item.focusSteps
     : normalizeTextArray(item.steps);
-  const mentions = normalizeTextArray(item.mentions);
+  const refinedSteps = refineGenericSemanticSteps({
+    title,
+    nextStep: initialNextStep,
+    focusSteps: normalizeTextArray(initialFocusSteps).map(cleanDisplayText),
+    evidenceTexts: [
+      ...mentions,
+      ...sourceUnitTexts,
+      item.source,
+      item.title,
+    ],
+    options,
+  });
   const source = hasText(item.source)
     ? item.source.trim()
-    : mentions.join("；") || title;
+    : mentions.join("；") || sourceUnitTexts.filter(Boolean).join("；") || title;
 
   return {
     label: hasText(item.label) ? item.label : DEFAULT_LABEL,
@@ -409,8 +715,8 @@ function normalizeSemanticItem(item, index, recommendedNow) {
     priority: normalizePriority(item.priority, index + 1),
     title,
     reason: hasText(item.reason) ? cleanDisplayText(item.reason) : cleanDisplayText(recommendedNow?.reason),
-    nextStep,
-    focusSteps: (focusSteps.length > 0 ? normalizeTextArray(focusSteps) : normalizeTextArray([nextStep])).map(cleanDisplayText),
+    nextStep: refinedSteps.nextStep,
+    focusSteps: (refinedSteps.focusSteps.length > 0 ? normalizeTextArray(refinedSteps.focusSteps) : normalizeTextArray([refinedSteps.nextStep])).map(cleanDisplayText),
     source,
     category: hasText(item.category) ? item.category : hasText(item.type) ? item.type : "unknown",
     energy: hasText(item.energy) ? item.energy : "unknown",
@@ -421,7 +727,7 @@ function normalizeSemanticItem(item, index, recommendedNow) {
     isBigEvent: item.isBigEvent === true,
     remindDaysBefore: Number.isInteger(item.remindDaysBefore) && item.remindDaysBefore >= 0
       ? item.remindDaysBefore
-      : null,
+      : inferredDeadline.remindDaysBefore,
     parentGoal: hasText(item.parentGoal) ? item.parentGoal.trim() : null,
     sourceUnitIds: normalizeTextArray(item.sourceUnitIds),
     mentions,
@@ -526,9 +832,7 @@ function localFast(rawText, fallbackOrganizer) {
 
 function hasGenericNextStep(result) {
   const displayItems = Array.isArray(result.suggestions) ? result.suggestions : [];
-  const genericPattern = /^(开始|处理|整理|学习|准备|完成|推进|制定计划|规划|研究|分析|先把这件事写成|把这件事改写成)/u;
-
-  return displayItems.some((item) => genericPattern.test(String(item.nextStep ?? "").trim()));
+  return displayItems.some((item) => isGenericNextStepText(item.nextStep));
 }
 
 function canUseLocalFastResult(rawText, fallbackOrganizer) {
@@ -901,6 +1205,10 @@ function createLocalSemanticFocusSteps(title, units, options = {}) {
     return ["打开本地登录页", "注册一个本机账号", "退出后重新登录"];
   }
 
+  if (title === "修改方案") {
+    return ["打开方案文件", "标出要改的一处", "保存一版可提交草稿"];
+  }
+
   if (title === "制作 MindFlow 宣传内容") {
     return ["确定用视频还是小红书文案", "列出 3 个卖点", "先写一个开头"];
   }
@@ -945,6 +1253,14 @@ function createLocalSemanticFocusSteps(title, units, options = {}) {
     return ["复现一次整理耗时", "记录接口等待时间", "换成本地快路径验证"];
   }
 
+  if (title === "交申请材料" || (/申请材料/u.test(combined) && /交|提交|发|发送|发出去/u.test(combined))) {
+    return ["打开申请材料清单", "确认缺少哪一项", "先补最容易提交的文件"];
+  }
+
+  if (title === "发送申请材料") {
+    return ["打开申请材料文件夹", "确认文件齐不齐", "先发出一版材料"];
+  }
+
   if (/语义|拆解|理解/u.test(combined) && /歧义|歧词|过滤/u.test(combined)) {
     return ["复现语义拆解输出", "标记口语和上下文词", "只保留可行动语义单元"];
   }
@@ -976,6 +1292,10 @@ function createLocalSemanticFocusSteps(title, units, options = {}) {
 function createLocalSemanticNextStep(title, focusSteps) {
   if (title === "求职准备") {
     return "打开简历文件，先补最近一个项目。";
+  }
+
+  if (/申请材料/u.test(title) && /交|提交|发|发送|发出去/u.test(title)) {
+    return "打开申请材料清单，先确认缺少哪一项。";
   }
 
   const titleSteps = {
@@ -1150,6 +1470,15 @@ function createLocalSemanticResultFromUnits(rawText, units, modelBehavior, optio
     const title = createLocalSemanticTitle(mentions);
     const focusSteps = createLocalSemanticFocusSteps(title, mentions, options);
     const isBigEvent = isLocalBigProject(title, mentions);
+    const deadline = parseLocalDeadline(mentions.join("，"), options);
+    const priorityDecision = createPriorityRuleDecision({
+      text: mentions.join("，"),
+      title,
+      dueAt: deadline.dueAt,
+      isBigEvent,
+      index,
+      options,
+    });
 
     return applyLocalResplitStrategy({
       id: `item_${index + 1}`,
@@ -1157,20 +1486,20 @@ function createLocalSemanticResultFromUnits(rawText, units, modelBehavior, optio
       sourceUnitIds: groupUnits.map((unit) => unit.id),
       mentions,
       type: "task",
-      priority: index === 0 ? "medium" : "low",
-      assignTo: index === 0 ? "active" : "parking",
-      reason: `这条来自你输入里的「${mentions[0]}」。`,
+      priority: priorityDecision.priority,
+      assignTo: priorityDecision.priority === "high" || index === 0 ? "active" : "parking",
+      reason: priorityDecision.reason,
       nextStep: createLocalSemanticNextStep(title, focusSteps),
       focusSteps,
       deliverables: [],
       dependsOn: [],
       category: "task",
       energy: "low",
-      timeHint: null,
-      dueAt: null,
+      timeHint: deadline.timeHint,
+      dueAt: deadline.dueAt,
       tags: [],
       isBigEvent,
-      remindDaysBefore: null,
+      remindDaysBefore: deadline.remindDaysBefore,
       confidence: 0.65,
       ambiguities: [],
     }, options.strategy);
@@ -1332,6 +1661,15 @@ function createLocalSemanticFastResult(rawText, options = {}) {
       const config = PLANNING_GROUPS[key];
       const groupUnits = groupMap.get(key);
       const isHigh = groupUnits.some((unit) => /\bP0\b/u.test(unit.text));
+      const deadline = parseLocalDeadline(groupUnits.map((unit) => unit.text).join("，"), options);
+      const priorityDecision = createPriorityRuleDecision({
+        text: groupUnits.map((unit) => unit.text).join("，"),
+        title: config.title,
+        dueAt: deadline.dueAt,
+        isBigEvent: true,
+        index,
+        options,
+      });
 
       return applyLocalResplitStrategy({
         id: `item_${index + 1}`,
@@ -1340,7 +1678,7 @@ function createLocalSemanticFastResult(rawText, options = {}) {
         sourceUnitIds: groupUnits.map((unit) => unit.id),
         mentions: groupUnits.map((unit) => unit.text),
         type: config.type,
-        priority: isHigh ? "high" : "medium",
+        priority: isHigh ? "high" : priorityDecision.priority,
         assignTo: isHigh ? "active" : "parking",
         reason: config.reason,
         nextStep: config.nextStep,
@@ -1349,11 +1687,11 @@ function createLocalSemanticFastResult(rawText, options = {}) {
         dependsOn: [],
         category: "task",
         energy: isHigh ? "medium" : "low",
-        timeHint: null,
-        dueAt: null,
+        timeHint: deadline.timeHint,
+        dueAt: deadline.dueAt,
         tags: config.tags,
         isBigEvent: true,
-        remindDaysBefore: null,
+        remindDaysBefore: deadline.remindDaysBefore,
         confidence: 0.8,
         ambiguities: [],
       }, options.strategy);
@@ -1544,11 +1882,11 @@ export function validateAiResult(result, rawText) {
   return { valid: true };
 }
 
-export function normalizeAiResult(result) {
+export function normalizeAiResult(result, options = {}) {
   const semanticUnits = normalizeSemanticUnits(result.semanticUnits);
   const coverageCheck = normalizeCoverageCheck(result.coverageCheck);
   const semanticItems = Array.isArray(result.items)
-    ? result.items.map((item, index) => normalizeSemanticItem(item, index, result.recommendedNow))
+    ? result.items.map((item, index) => normalizeSemanticItem(item, index, result.recommendedNow, semanticUnits, options))
     : [];
   const recommendedItemId = result.recommendedNow?.itemId;
   const orderedSemanticItems = semanticItems.length > 0
@@ -1628,7 +1966,7 @@ export async function organizeThoughtsWithAi(rawText, options = {}) {
     return fallback(inputText, fallbackOrganizer, validation.reason);
   }
 
-  return normalizeAiResult(parsedResult);
+  return normalizeAiResult(parsedResult, options);
 }
 
 export async function mockAiClient({ rawText }) {

@@ -174,6 +174,30 @@ test("createLocalSemanticResult handles everyday mixed input without waiting for
   assert.equal(getOrganizedResultSaveBlocker(result, rawText), null);
 });
 
+test("createLocalSemanticResult detects local deadlines and applies priority rules without extra fields", () => {
+  const result = createLocalSemanticResult("老板说明天下午前要改方案，周末整理房间", {
+    now: "2026-08-09T10:00:00+08:00",
+  });
+
+  assert.equal(result.items[0].title, "修改方案");
+  assert.equal(result.items[0].timeHint, "明天");
+  assert.equal(result.items[0].dueAt, "2026-08-10T15:00:00+08:00");
+  assert.equal(result.items[0].remindDaysBefore, 0);
+  assert.equal(result.items[0].priority, "high");
+  assert.equal("priorityMethod" in result.items[0], false);
+  assert.equal("priorityQuadrant" in result.items[0], false);
+  assert.equal("urgency" in result.items[0], false);
+  assert.equal("importance" in result.items[0], false);
+  assert.deepEqual(result.items[0].focusSteps, ["打开方案文件", "标出要改的一处", "保存一版可提交草稿"]);
+
+  const materials = createLocalSemanticResult("今晚交申请材料", {
+    now: "2026-08-09T10:00:00+08:00",
+  });
+  assert.equal(materials.items[0].title, "交申请材料");
+  assert.equal(materials.items[0].nextStep, "打开申请材料清单，先确认缺少哪一项。");
+  assert.deepEqual(materials.items[0].focusSteps, ["打开申请材料清单", "确认缺少哪一项", "先补最容易提交的文件"]);
+});
+
 test("createLocalSemanticResult splits local model slowness, login check, and portfolio plan", () => {
   const rawText = "我感觉现在这个本地模型整理得非常慢，然后登录也要自测一下，同时看看作品集计划能不能拆成步骤";
   const result = createLocalSemanticResult(rawText);
@@ -821,6 +845,51 @@ test("organizeThoughtsWithAi accepts local model semantic output with completed 
   assert.equal(result.meta.modelBehavior, "ai");
   assert.equal(result.suggestion.title, "准备面试资产");
   assert.deepEqual(result.suggestion.deliverables, ["1 分钟自我介绍"]);
+});
+
+test("organizeThoughtsWithAi backfills deadlines when AI omits dueAt", async () => {
+  const result = await organizeThoughtsWithAi("老板说明天下午前要改方案，今晚交申请材料", {
+    now: "2026-08-09T10:00:00+08:00",
+    aiClient: async () => JSON.stringify({
+      status: "success",
+      semanticUnits: [
+        { id: "u1", text: "老板说明天下午前要改方案", role: "task" },
+        { id: "u2", text: "今晚交申请材料", role: "task" },
+      ],
+      items: [
+        {
+          id: "item_1",
+          title: "修改方案",
+          sourceUnitIds: ["u1"],
+          priority: "high",
+          assignTo: "active",
+          reason: "老板要求",
+          nextStep: "开始修改方案",
+          focusSteps: ["开始修改方案", "制定计划"],
+        },
+        {
+          id: "item_2",
+          title: "提交申请材料",
+          sourceUnitIds: ["u2"],
+          priority: "high",
+          assignTo: "active",
+          reason: "今晚要交",
+          nextStep: "准备申请材料",
+          focusSteps: ["准备申请材料", "检查文件"],
+        },
+      ],
+      recommendedNow: { itemId: "item_1" },
+      coverageCheck: { coveredUnitIds: ["u1", "u2"], unmappedUnitIds: [] },
+    }),
+  });
+
+  assert.equal(result.suggestions[0].dueAt, "2026-08-10T15:00:00+08:00");
+  assert.equal(result.suggestions[0].timeHint, "明天");
+  assert.equal(result.suggestions[0].nextStep, "打开方案文件，先标出要改的一处。");
+  assert.equal(result.suggestions[1].dueAt, "2026-08-09T20:00:00+08:00");
+  assert.equal(result.suggestions[1].timeHint, "今晚");
+  assert.equal(result.suggestions[1].nextStep, "打开申请材料清单，先确认缺少哪一项。");
+  assert.equal(getOrganizedResultSaveBlocker(result, "老板说明天下午前要改方案，今晚交申请材料"), null);
 });
 
 test("normalizeAiResult accepts string semantic arrays from small local models", () => {

@@ -72,12 +72,20 @@ test("home sidebar is a priority action preview with source-aware detail return"
   assert.equal(app.includes("window.confirm"), false, "resplit should not use native browser confirmation");
   assert.ok(app.includes("undoRecentOrganization"), "runtime should let users undo a bad organize batch");
   assert.ok(app.includes("resplitRecentOrganization"), "runtime should run a new split from the selected strategy");
-  assert.ok(app.includes("setStatus(`正在用「${strategyLabel}」重新整理`)"), "resplit should give immediate visible progress feedback");
+  assert.ok(app.includes('setStatus(t("status.resplittingWith", { strategy: strategyLabel }))'), "resplit should give immediate visible progress feedback");
   assert.ok(app.includes("上一次整理还在"), "failed resplits should reassure the user that the previous batch was preserved");
   assert.ok(app.includes("store.undoDelete(currentUser.id, itemId)"), "failed resplits should restore the previous batch");
   assert.ok(app.includes('createDetailHash(item.id, "home")'), "home rows should carry home as the detail source");
   assert.ok(app.includes('createDetailHash(item.id, "items")'), "item-list rows should carry items as the detail source");
-  assert.ok(app.includes('from === "home" ? "返回首页" : "返回全部想法"'), "detail back copy should match entry source");
+  assert.ok(app.includes('from === "home" ? t("detail.backHome") : t("detail.backItems")'), "detail back copy should match entry source");
+  assert.ok(app.includes("getDeadlineLabel(item)"), "home rows and cards should expose deadline reminder labels");
+  assert.ok(app.includes("getItemPriorityScore(item)"), "home priority preview should use deadline-aware priority scoring");
+  assert.ok(css.includes(".row-text .row-deadline"), "home rows should have a dedicated deadline reminder style");
+  assert.ok(css.includes("position: fixed"), "toast should float above the page instead of shifting card layout");
+  assert.ok(css.includes("right: clamp(16px, 2vw, 32px)"), "toast should sit at the right edge with responsive breathing room");
+  assert.ok(css.includes("env(safe-area-inset-bottom"), "toast should respect mobile bottom safe areas");
+  assert.ok(css.includes("width: min(420px, calc(100vw - 32px))"), "toast should stay within small viewports");
+  assert.equal(app.includes("priorityQuadrant"), false, "quadrant rules should not become visible item metadata");
   assert.equal(app.includes("来自记一笔"), false, "home priority rows should not spend space on source copy");
 });
 
@@ -95,10 +103,28 @@ test("detail view exposes step regeneration and list cards avoid source explanat
   assert.ok(app.includes("previousDetailStepsSnapshot = getDetailStepSnapshot()"), "detail regeneration should cache the previous step draft");
   assert.ok(app.includes("undoRegeneratedDetailSteps"), "detail regeneration should restore the previous draft when undone");
   assert.ok(app.includes("renderDetailStepSnapshot(previousDetailStepsSnapshot)"), "undo should restore the exact step inputs");
-  assert.ok(app.includes("已按「${resplitStrategyLabels[strategy]}」重新生成"), "detail regeneration should show visible success feedback");
-  assert.ok(app.includes('regenerateStepsButton.textContent = "生成中…"'), "detail regeneration should show an in-progress button state");
+  assert.ok(app.includes('t("detail.regenerateDone", { strategy: strategyLabel })'), "detail regeneration should show visible success feedback");
+  assert.ok(app.includes('regenerateStepsButton.textContent = t("detail.generating")'), "detail regeneration should show an in-progress button state");
   assert.equal(app.includes('reason.textContent = item.status === "parking" ? item.parkingReason : item.reason'), false);
-  assert.ok(app.includes("下一步：${getNextOpenStep(item)}"), "list cards should show the actionable next step instead of source text");
+  assert.ok(app.includes('t("card.nextStep", { step: getNextOpenStep(item) })'), "list cards should show the actionable next step instead of source text");
+});
+
+test("prototype exposes English localization and a persistent language switch", async () => {
+  const [html, app, voice] = await Promise.all([
+    readFile("src/prototype/index.html", "utf8"),
+    readFile("src/prototype/app.js", "utf8"),
+    readFile("src/prototype/voice-input.mjs", "utf8"),
+  ]);
+
+  assert.ok(html.includes('id="language-toggle"'), "language switch should be visible in the shell");
+  assert.ok(app.includes('"en-US"'), "runtime should define English as a supported language");
+  assert.ok(app.includes("LANGUAGE_STORAGE_KEY"), "language choice should be persisted");
+  assert.ok(app.includes("applyStaticLanguage"), "static shell copy should update when language changes");
+  assert.ok(app.includes("switchLanguage"), "language toggle should rerender the current route");
+  assert.ok(app.includes('"nav.items": "All thoughts"'), "English navigation copy should be present");
+  assert.ok(app.includes('"capture.submit": "Help me sort this out"'), "English capture CTA should be present");
+  assert.ok(app.includes("voiceController?.updateLanguage"), "voice recognition should follow the selected language");
+  assert.ok(voice.includes("updateLanguage"), "voice controller should accept language updates after initialization");
 });
 
 test("login uses a standalone page shell instead of sharing the app workspace", async () => {
