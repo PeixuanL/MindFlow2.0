@@ -33,6 +33,8 @@ test("buildMindFlowMessages asks for MindFlow JSON without exposing any secret",
   assert.ok(combined.includes("dueAt"));
   assert.ok(combined.includes("tags"));
   assert.ok(combined.includes("今晚、几个小时后、两天后"));
+  assert.ok(combined.includes("默认使用该日 23:59:00+08:00"));
+  assert.ok(combined.includes("不要默认成 09:00"));
   assert.ok(combined.includes("时间线索只能绑定到原文明确修饰的事项"));
   assert.ok(combined.includes("不要把明天、今晚等时间词套到相邻任务"));
   assert.ok(combined.includes("语气保持低压力"));

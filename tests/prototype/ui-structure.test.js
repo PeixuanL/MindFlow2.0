@@ -184,6 +184,8 @@ test("detail view exposes editable deadline and tags fields", async () => {
     assert.ok(html.includes(`id="${id}"`), `${id} missing`);
   }
 
+  assert.ok(html.includes('id="detail-due-at-input" class="text-input" type="datetime-local"'), "deadline input should use the browser time picker");
   assert.ok(app.includes("detailDueAtInput"), "detail runtime should wire due date input");
+  assert.ok(app.includes("formatDateTimeLocalInput(item.dueAt)"), "detail runtime should convert saved due dates for datetime-local");
   assert.ok(app.includes("detailTagsInput"), "detail runtime should wire tags input");
 });

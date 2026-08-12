@@ -1156,6 +1156,30 @@ function formatTimeShort(date) {
   }).format(date);
 }
 
+function padDatePart(value) {
+  return String(value).padStart(2, "0");
+}
+
+function formatDateTimeLocalInput(value) {
+  const deadline = parseDeadlineValue(value);
+  if (!deadline) {
+    return "";
+  }
+
+  const date = deadline.date;
+  return [
+    date.getFullYear(),
+    "-",
+    padDatePart(date.getMonth() + 1),
+    "-",
+    padDatePart(date.getDate()),
+    "T",
+    padDatePart(date.getHours()),
+    ":",
+    padDatePart(date.getMinutes()),
+  ].join("");
+}
+
 function getDeadlineLabel(item) {
   const deadline = parseDeadlineValue(item?.dueAt);
   if (!deadline) {
@@ -1580,7 +1604,7 @@ function renderDetail(itemId, { from = "items" } = {}) {
   detailTitleInput.value = item.title;
   detailPriorityInput.value = item.priority;
   detailStatusInput.value = item.status;
-  detailDueAtInput.value = item.dueAt || "";
+  detailDueAtInput.value = formatDateTimeLocalInput(item.dueAt);
   detailTagsInput.value = Array.isArray(item.tags) ? item.tags.join(", ") : "";
   detailReasonInput.value = item.reason || "";
   detailParkingReasonInput.value = item.parkingReason || "";

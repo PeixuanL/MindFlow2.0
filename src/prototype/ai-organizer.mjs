@@ -10,7 +10,7 @@ const DEFAULT_META = {
 const PRESSURE_LANGUAGE_PATTERN = /必须|赶紧|立刻|拖太久|否则|应该早就/;
 const TITLE_FILLER_PATTERN = /^(我想|我觉得|我需要|我得|我要|得尽快|得赶紧|得|要尽快|尽快|赶紧|赶快|想要|想|然后|同时|顺便|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)+/u;
 const DISPLAY_FILLER_PATTERN = /(?:我感觉|我觉得|我想|我需要|我得|我要|得尽快|得赶紧|要尽快|尽快|赶紧|赶快|想要|就是|那个|这个|其实|感觉|有点|啊+|嗯+|呃+|额+)/gu;
-const TITLE_TIME_PATTERN = /(今天|今晚|明天|后天|大后天|几小时后|几个小时后|[一二两三四五六七八九十0-9]+个?小时后|[一二两三四五六七八九十0-9]+天后|下周[一二三四五六日天]?|下个月|上午|中午|下午|晚上|早上|凌晨|今晚|明晚)/gu;
+const TITLE_TIME_PATTERN = /(今天|今日|今晚|明天|后天|大后天|几小时后|几个小时后|[一二两三四五六七八九十0-9]+个?小时后|[一二两三四五六七八九十0-9]+天后|下周[一二三四五六日天]?|下个月|上午|中午|下午|晚上|早上|凌晨|今晚|明晚)/gu;
 const LOCAL_SEMANTIC_MAX_ITEMS = 5;
 const LOCAL_PROMPT_STRATEGY = "mindflow_system_prompt_local_rules_v1";
 const LOCAL_SPEECH_FILLER_PATTERN = /(?:我感觉|感觉|其实|就是|那个|这个|有点|一些|现在|今天|昨天|刚才|以及|然后|同时|顺便)/gu;
@@ -39,7 +39,7 @@ const WEEKDAY_MAP = {
   日: 0,
   天: 0,
 };
-const TIME_HINT_PATTERN = /(今天|今晚|明天|明晚|后天|大后天|周[一二三四五六日天]|星期[一二三四五六日天]|下周[一二三四五六日天]?|下个月|几小时后|几个小时后|[一二两三四五六七八九十0-9]+个?小时后|[一二两三四五六七八九十0-9]+天后|上午|中午|下午|晚上|早上|凌晨)/u;
+const TIME_HINT_PATTERN = /(今天|今日|今晚|明天|明晚|后天|大后天|周[一二三四五六日天]|星期[一二三四五六日天]|下周[一二三四五六日天]?|下个月|几小时后|几个小时后|[一二两三四五六七八九十0-9]+个?小时后|[一二两三四五六七八九十0-9]+天后|上午|中午|下午|晚上|早上|凌晨)/u;
 
 function toInputText(rawText) {
   return typeof rawText === "string" ? rawText : String(rawText ?? "");
@@ -177,7 +177,7 @@ function addDaysToShanghaiDate(parts, dayDelta) {
   };
 }
 
-function formatShanghaiIso(dateParts, hour = 9, minute = 0) {
+function formatShanghaiIso(dateParts, hour = 23, minute = 59) {
   return `${dateParts.year}-${padNumber(dateParts.month)}-${padNumber(dateParts.day)}T${padNumber(hour)}:${padNumber(minute)}:00+08:00`;
 }
 
@@ -212,7 +212,7 @@ function getLocalTimeOfDay(text) {
     return { hour: 20, minute: 0 };
   }
 
-  return { hour: 9, minute: 0 };
+  return { hour: 23, minute: 59 };
 }
 
 function extractLocalTimeHint(text) {

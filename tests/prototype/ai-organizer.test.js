@@ -196,6 +196,12 @@ test("createLocalSemanticResult detects local deadlines and applies priority rul
   assert.equal(materials.items[0].title, "交申请材料");
   assert.equal(materials.items[0].nextStep, "打开申请材料清单，先确认缺少哪一项。");
   assert.deepEqual(materials.items[0].focusSteps, ["打开申请材料清单", "确认缺少哪一项", "先补最容易提交的文件"]);
+
+  const todayOnly = createLocalSemanticResult("今日交付 Asset Management 框架初稿", {
+    now: "2026-08-12T10:00:00+08:00",
+  });
+  assert.equal(todayOnly.items[0].timeHint, "今日");
+  assert.equal(todayOnly.items[0].dueAt, "2026-08-12T23:59:00+08:00");
 });
 
 test("createLocalSemanticResult splits local model slowness, login check, and portfolio plan", () => {
