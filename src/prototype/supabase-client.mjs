@@ -16,9 +16,10 @@ function parseResponseBody(text) {
   }
 }
 
-function createError(message, payload) {
+function createError(message, payload, status = null) {
   const error = new Error(message);
   error.payload = payload;
+  error.status = status;
   return error;
 }
 
@@ -39,6 +40,7 @@ export function createSupabaseRestClient(options = {}) {
   const storage = options.storage ?? globalThis.localStorage;
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   let configPromise = null;
+  let refreshPromise = null;
 
   if (!storage) {
     throw new Error("storage_unavailable");
@@ -84,9 +86,13 @@ export function createSupabaseRestClient(options = {}) {
     return configPromise;
   }
 
-  async function request(path, options = {}) {
-    const config = await getConfig();
-    const session = options.session ?? readSession();
+  function resolveSession(options) {
+    return Object.prototype.hasOwnProperty.call(options, "session")
+      ? options.session
+      : readSession();
+  }
+
+  async function sendRequest(config, path, options = {}, session = null) {
     const headers = {
       "Content-Type": "application/json",
       ...(options.headers ?? {}),
@@ -121,14 +127,61 @@ export function createSupabaseRestClient(options = {}) {
 
     if (!response.ok) {
       const message = body?.error_code || body?.code || body?.msg || body?.message || body?.error_description || body?.error || "cloud_request_failed";
-      throw createError(message, body);
+      throw createError(message, body, response.status);
     }
 
     return body;
   }
 
+  async function refreshSession(currentSession = readSession()) {
+    if (!currentSession?.refresh_token) {
+      throw new Error("session_refresh_unavailable");
+    }
+
+    refreshPromise ??= request("/auth/v1/token?grant_type=refresh_token", {
+      method: "POST",
+      body: JSON.stringify({
+        refresh_token: currentSession.refresh_token,
+      }),
+      session: null,
+      skipAuthRefresh: true,
+    })
+      .then((payload) => {
+        const session = normalizeSessionPayload(payload);
+
+        if (!session?.access_token) {
+          throw new Error("session_refresh_failed");
+        }
+
+        writeSession(session);
+        return session;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+
+    return refreshPromise;
+  }
+
+  async function request(path, options = {}) {
+    const config = await getConfig();
+    const session = resolveSession(options);
+
+    try {
+      return await sendRequest(config, path, options, session);
+    } catch (error) {
+      if (options.skipAuthRefresh || !session?.refresh_token || error?.status !== 401) {
+        throw error;
+      }
+
+      const refreshedSession = await refreshSession(session);
+      return sendRequest(config, path, options, refreshedSession);
+    }
+  }
+
   return {
     getSession: readSession,
+    refreshSession,
 
     async signUp({ email, password, displayName }) {
       const payload = await request("/auth/v1/signup", {
