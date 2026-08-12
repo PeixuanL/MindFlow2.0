@@ -72,7 +72,7 @@ test("home sidebar is a priority action preview with source-aware detail return"
   assert.equal(app.includes("window.confirm"), false, "resplit should not use native browser confirmation");
   assert.ok(app.includes("undoRecentOrganization"), "runtime should let users undo a bad organize batch");
   assert.ok(app.includes("resplitRecentOrganization"), "runtime should run a new split from the selected strategy");
-  assert.ok(app.includes('setStatus(t("status.resplittingWith", { strategy: strategyLabel }))'), "resplit should give immediate visible progress feedback");
+  assert.ok(app.includes('setStatus(t("status.resplittingWith", { strategy: strategyLabel }))'), "resplit should keep status feedback available to assistive tech");
   assert.ok(app.includes("上一次整理还在"), "failed resplits should reassure the user that the previous batch was preserved");
   assert.ok(app.includes("store.undoDelete(currentUser.id, itemId)"), "failed resplits should restore the previous batch");
   assert.ok(app.includes('createDetailHash(item.id, "home")'), "home rows should carry home as the detail source");
@@ -82,7 +82,8 @@ test("home sidebar is a priority action preview with source-aware detail return"
   assert.ok(app.includes("getItemPriorityScore(item)"), "home priority preview should use deadline-aware priority scoring");
   assert.ok(css.includes(".row-text .row-deadline"), "home rows should have a dedicated deadline reminder style");
   assert.ok(css.includes("resize: none"), "home capture input should not be draggable enough to hide suggestion actions");
-  assert.ok(css.includes("overflow-y: auto"), "home content should remain scrollable when vertical space is tight");
+  assert.ok(html.includes('id="status-message" class="sr-only"'), "home suggestion safety copy should not occupy visible card space");
+  assert.equal(css.includes("scrollbar-gutter: stable"), false, "home primary column should not reserve a visible scrollbar gutter");
   assert.ok(css.includes("font-size: 38px"), "desktop home title should be quieter than the earlier oversized hero");
   assert.ok(css.includes("position: fixed"), "toast should float above the page instead of shifting card layout");
   assert.ok(css.includes("right: clamp(16px, 2vw, 32px)"), "toast should sit at the right edge with responsive breathing room");

@@ -1426,9 +1426,6 @@ h1 {
     gap: 14px;
     min-width: 0;
     min-height: 0;
-    overflow-y: auto;
-    padding-bottom: 12px;
-    scrollbar-gutter: stable;
   }
 
   .home-primary .capture-section,
@@ -1597,8 +1594,7 @@ h1 {
   }
 
   .reason,
-  .action-row,
-  .safe-pill {
+  .action-row {
     margin-top: 8px;
   }
 
