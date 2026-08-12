@@ -1731,6 +1731,10 @@ h1 {
   padding: calc(22px + env(safe-area-inset-top, 0px)) 18px calc(22px + env(safe-area-inset-bottom, 0px));
 }
 
+.app-shell.is-auth-checking {
+  opacity: 0;
+}
+
 .app-shell.is-login-shell .app-sidebar,
 .app-shell.is-login-shell .top-bar {
   display: none;

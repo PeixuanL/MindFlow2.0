@@ -901,6 +901,7 @@ function show(section) {
 }
 
 function showView(name, { activeNav = name } = {}) {
+  appShell.classList.remove("is-auth-checking");
   Object.values(views).forEach((view) => view.classList.add("is-hidden"));
   show(views[name]);
   appShell.classList.toggle("is-login-shell", name === "login");

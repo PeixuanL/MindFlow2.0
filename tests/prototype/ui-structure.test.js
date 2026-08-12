@@ -145,13 +145,16 @@ test("login uses a standalone page shell instead of sharing the app workspace", 
   ]);
 
   assert.ok(html.includes("login-page"), "login view should expose a dedicated login-page layout");
+  assert.ok(html.includes("is-auth-checking"), "initial render should wait for the stored auth session before showing login");
   assert.ok(html.includes("Demo 体验"), "login view should expose a conventional demo entry");
   assert.ok(html.includes('id="demo-button"'), "demo entry should have a wired button id");
   assert.ok(html.includes('id="logout-button" class="logout-button"'), "logout should use a readable text button");
   assert.ok(html.includes('aria-label="退出登录"'), "logout should name the action clearly");
   assert.ok(html.includes(">退出</button>"), "logout should expose visible copy instead of an ambiguous icon");
   assert.ok(app.includes("is-login-shell"), "route rendering should switch the shell into login mode");
+  assert.ok(app.includes('appShell.classList.remove("is-auth-checking")'), "route rendering should reveal the chosen view after auth check");
   assert.ok(app.includes("store.enterDemo"), "demo entry should enter a local demo session");
+  assert.ok(css.includes(".app-shell.is-auth-checking"), "auth bootstrap state should avoid a login flash on refresh");
   assert.ok(css.includes(".app-shell.is-login-shell .app-sidebar"), "login mode should hide workspace navigation");
   assert.ok(css.includes(".login-page"), "login page should have its own layout rules");
   assert.ok(css.includes(".auth-demo-button"), "demo entry should align with the auth form");
