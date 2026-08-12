@@ -86,6 +86,8 @@ test("home sidebar is a priority action preview with source-aware detail return"
   assert.ok(css.includes(".home-primary .suggestion-section:not(.is-hidden)"), "home suggestion flex layout should not override hidden card state");
   assert.ok(css.includes(".home-primary .suggestion-section .action-row"), "home suggestion actions should be bottom-aligned within the recommendation card");
   assert.ok(css.includes("margin-top: auto"), "home suggestion action row should absorb empty card space above the buttons");
+  assert.ok(css.includes("overflow: visible"), "home sidebar should not clip glass panel edges into visible seams");
+  assert.ok(css.includes("box-shadow: 0 1px 0 rgba(255, 255, 255, 0.46) inset"), "desktop home cards should avoid external shadows that create panel seams");
   assert.ok(html.includes('id="status-message" class="sr-only"'), "home suggestion safety copy should not occupy visible card space");
   assert.equal(css.includes("scrollbar-gutter: stable"), false, "home primary column should not reserve a visible scrollbar gutter");
   assert.ok(css.includes("font-size: 38px"), "desktop home title should be quieter than the earlier oversized hero");
