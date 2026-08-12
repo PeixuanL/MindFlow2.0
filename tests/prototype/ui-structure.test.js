@@ -81,6 +81,9 @@ test("home sidebar is a priority action preview with source-aware detail return"
   assert.ok(app.includes("getDeadlineLabel(item)"), "home rows and cards should expose deadline reminder labels");
   assert.ok(app.includes("getItemPriorityScore(item)"), "home priority preview should use deadline-aware priority scoring");
   assert.ok(css.includes(".row-text .row-deadline"), "home rows should have a dedicated deadline reminder style");
+  assert.ok(css.includes("resize: none"), "home capture input should not be draggable enough to hide suggestion actions");
+  assert.ok(css.includes("overflow-y: auto"), "home content should remain scrollable when vertical space is tight");
+  assert.ok(css.includes("font-size: 38px"), "desktop home title should be quieter than the earlier oversized hero");
   assert.ok(css.includes("position: fixed"), "toast should float above the page instead of shifting card layout");
   assert.ok(css.includes("right: clamp(16px, 2vw, 32px)"), "toast should sit at the right edge with responsive breathing room");
   assert.ok(css.includes("env(safe-area-inset-bottom"), "toast should respect mobile bottom safe areas");
